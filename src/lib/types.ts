@@ -1,5 +1,7 @@
 export type Tone = 'Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational';
 
+export type DefaultEffectPlacement = 'ai-optimized' | 'manual-only';
+
 export interface Project {
   id: string;
   name: string;
@@ -11,6 +13,7 @@ export interface Project {
   transcript?: string; // or a more structured transcript type
   effects?: SoundEffectInstance[];
   selectedTone: Tone;
+  defaultEffectPlacement?: DefaultEffectPlacement;
   finalAudioUrl?: string; // URL to download the mixed audio
 }
 

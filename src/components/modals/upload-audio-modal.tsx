@@ -3,16 +3,17 @@
 import { useState, useCallback, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { AVAILABLE_TONES, MAX_AUDIO_FILE_SIZE_BYTES, MAX_AUDIO_FILE_SIZE_MB, ALLOWED_AUDIO_TYPES } from '@/lib/constants';
-import type { Tone } from '@/lib/types';
+import { AVAILABLE_TONES, MAX_AUDIO_FILE_SIZE_BYTES, MAX_AUDIO_FILE_SIZE_MB, ALLOWED_AUDIO_TYPES, AVAILABLE_EFFECT_PLACEMENTS } from '@/lib/constants';
+import type { Tone, DefaultEffectPlacement } from '@/lib/types';
 import { UploadCloud, FileAudio, X, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TrustBadgeIcon, ToneIcon } from '@/components/icons';
@@ -25,7 +26,7 @@ const projectSchema = z.object({
     .custom<FileList>((val) => val instanceof FileList && val.length > 0, 'Please select an audio file.')
     .refine(files => files?.[0]?.size <= MAX_AUDIO_FILE_SIZE_BYTES, `File size must be ${MAX_AUDIO_FILE_SIZE_MB}MB or less.`)
     .refine(files => ALLOWED_AUDIO_TYPES.includes(files?.[0]?.type), 'Invalid file type. Please upload MP3, WAV, or M4A.'),
-  // defaultEffectPlacement: z.enum(['ai-optimized', 'manual-only']), // Example for PROJ-02
+  defaultEffectPlacement: z.enum(AVAILABLE_EFFECT_PLACEMENTS.map(p => p.value) as [DefaultEffectPlacement, ...DefaultEffectPlacement[]], { required_error: 'Please select a default effect placement strategy.' }),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -46,8 +47,7 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     resolver: zodResolver(projectSchema),
     defaultValues: {
       projectName: '',
-      // selectedTone: undefined, // Will be handled by Select's placeholder
-      // audioFile: undefined,
+      defaultEffectPlacement: AVAILABLE_EFFECT_PLACEMENTS[0].value, // Default to AI-Optimized
     },
   });
   
@@ -88,37 +88,33 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     setIsUploading(true);
     setUploadProgress(0);
 
-    // Simulate upload progress
     for (let i = 0; i <= 100; i += 10) {
       await new Promise(resolve => setTimeout(resolve, 100));
       setUploadProgress(i);
     }
     
-    // Simulate backend processing (AI analysis etc.)
-    // In a real app, you'd upload to Firebase Storage, then trigger a Cloud Function.
-    // The Cloud Function would use `suggestSoundEffects` AI flow.
     await new Promise(resolve => setTimeout(resolve, 2000)); 
 
     const newProject = {
       id: `proj_${Date.now()}`,
       name: data.projectName,
       date: new Date().toISOString(),
-      status: 'Processing' as const, // This would be the initial status
+      status: 'Processing' as const, 
       audioFileName: data.audioFile[0].name,
       audioFileSize: data.audioFile[0].size,
       selectedTone: data.selectedTone,
-      // duration: await getAudioDuration(data.audioFile[0]), // Helper needed
+      defaultEffectPlacement: data.defaultEffectPlacement,
     };
 
-    onProjectCreated(newProject); // Update dashboard state
+    onProjectCreated(newProject); 
     setIsUploading(false);
-    onOpenChange(false); // Close modal
+    onOpenChange(false); 
     form.reset();
     toast({
       title: "Project Created!",
       description: `${data.projectName} is now processing.`,
     });
-    router.push('/dashboard'); // Navigate to dashboard
+    router.push('/dashboard'); 
   };
 
   return (
@@ -141,12 +137,12 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
               onDragOver={onDragOver}
               onDragLeave={onDragLeave}
               onDrop={onDrop}
-              className={`mt-1 flex justify-center items-center w-full h-48 px-6 pt-5 pb-6 border-2 border-dashed rounded-md transition-colors
+              className={`mt-1 flex justify-center items-center w-full h-40 px-6 pt-5 pb-6 border-2 border-dashed rounded-md transition-colors
                 ${dragActive ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/70'}
                 ${form.formState.errors.audioFile ? 'border-destructive' : ''}`}
             >
               <div className="space-y-1 text-center">
-                <UploadCloud className={`mx-auto h-12 w-12 ${dragActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                <UploadCloud className={`mx-auto h-10 w-10 ${dragActive ? 'text-primary' : 'text-muted-foreground'}`} />
                 <div className="flex text-sm text-muted-foreground">
                   <Label
                     htmlFor="audioFile-input"
@@ -209,20 +205,34 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
              {form.formState.errors.selectedTone && <p className="text-sm text-destructive mt-1">{form.formState.errors.selectedTone.message}</p>}
           </div>
           
-          {/* Placeholder for PROJ-02 Default Effect Placement - could be a RadioGroup */}
-          {/* <div>
-            <Label>Default Effect Placement</Label>
-            <RadioGroup defaultValue="ai-optimized" className="mt-1">
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="ai-optimized" id="ai-optimized" />
-                <Label htmlFor="ai-optimized">AI-Optimized (Recommended)</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="manual-only" id="manual-only" />
-                <Label htmlFor="manual-only">Manual Only (Advanced)</Label>
-              </div>
-            </RadioGroup>
-          </div> */}
+          <div>
+            <Controller
+              control={form.control}
+              name="defaultEffectPlacement"
+              render={({ field }) => (
+                <>
+                  <Label>Default Effect Placement</Label>
+                  <RadioGroup
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    className="mt-1 space-y-2"
+                  >
+                    {AVAILABLE_EFFECT_PLACEMENTS.map((placement) => (
+                      <div key={placement.value} className="flex items-start space-x-2 p-2 border rounded-md hover:border-primary/50 transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                        <RadioGroupItem value={placement.value} id={placement.value} className="mt-1"/>
+                        <div className="flex-1">
+                           <Label htmlFor={placement.value} className="font-medium cursor-pointer">{placement.label}</Label>
+                           {placement.description && <p className="text-xs text-muted-foreground">{placement.description}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </>
+              )}
+            />
+            {form.formState.errors.defaultEffectPlacement && <p className="text-sm text-destructive mt-1">{form.formState.errors.defaultEffectPlacement.message}</p>}
+          </div>
+
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 border border-green-200 bg-green-50 dark:bg-green-900/30 dark:border-green-700/50 rounded-md">
             <TrustBadgeIcon className="h-8 w-8 text-green-600 dark:text-green-400 shrink-0" />
