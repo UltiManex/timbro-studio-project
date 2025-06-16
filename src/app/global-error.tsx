@@ -6,7 +6,8 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle } from 'lucide-react';
-import { Logo } from '@/components/icons'; Link;
+import { Logo } from '@/components/icons';
+import Link from 'next/link';
 
 export default function GlobalError({
   error,
@@ -25,9 +26,9 @@ export default function GlobalError({
       <body>
         <div className="flex flex-col items-center justify-center min-h-screen bg-muted/40 p-4">
           <div className="mb-8">
-             <a href="/" aria-label="Go to Homepage">
+             <Link href="/" aria-label="Go to Homepage">
                 <Logo className="h-8 w-auto" />
-             </a>
+             </Link>
           </div>
           <Card className="w-full max-w-md text-center shadow-xl">
             <CardHeader>
@@ -57,7 +58,7 @@ export default function GlobalError({
                 Try to Recover
               </Button>
                <Button asChild>
-                <a href="/">Go to Homepage</a>
+                <Link href="/">Go to Homepage</Link>
               </Button>
             </CardFooter>
           </Card>
