@@ -10,35 +10,14 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { mockProjects } from '@/app/(app)/dashboard/page'; 
 import type { Project, SoundEffect, SoundEffectInstance, Tone } from '@/lib/types';
 import { AVAILABLE_TONES, EDITOR_NUDGE_INCREMENT_MS } from '@/lib/constants';
+import { mockProjects, mockSoundEffectsLibrary, mockAISuggestions, mockTranscript } from '@/lib/mock-data';
 import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2 } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
 import { Slider } from '@/components/ui/slider';
 import { InstantSearch, SearchBox, Hits, Configure, Hit } from 'react-instantsearch-hooks-web';
 import algoliasearch from 'algoliasearch/lite';
-
-// Mock sound effect library (remains for resolving details of existing/AI effects if not fully in Algolia hit)
-const mockSoundEffectsLibrary: SoundEffect[] = [
-  { id: 'sfx_001', name: 'Comical Boing', tags: ['boing', 'jump', 'funny'], tone: ['Comedic'], previewUrl: '#' },
-  { id: 'sfx_002', name: 'Dramatic Swell', tags: ['swell', 'tension', 'reveal'], tone: ['Dramatic', 'Suspenseful'], previewUrl: '#' },
-  { id: 'sfx_003', name: 'Suspenseful Drone', tags: ['drone', 'creepy', 'tense'], tone: ['Suspenseful'], previewUrl: '#' },
-  { id: 'sfx_004', name: 'Uplifting Chime', tags: ['chime', 'positive', 'success'], tone: ['Inspirational'], previewUrl: '#' },
-  { id: 'sfx_005', name: 'Sad Trombone', tags: ['fail', 'wah-wah', 'funny'], tone: ['Comedic'], previewUrl: '#' },
-  { id: 'sfx_006', name: 'Heartbeat', tags: ['heart', 'pulse', 'tense'], tone: ['Suspenseful', 'Dramatic'], previewUrl: '#' },
-  { id: 'sfx_007', name: 'Record Scratch', tags: ['stop', 'interrupt', 'funny'], tone: ['Comedic'], previewUrl: '#' },
-  { id: 'sfx_008', name: 'Inspiring Piano Chord', tags: ['piano', 'hopeful', 'positive'], tone: ['Inspirational'], previewUrl: '#' },
-];
-
-// Mock AI suggestions
-const mockAISuggestions: SoundEffectInstance[] = [
-  { id: 'ai_inst_1', effectId: 'sfx_001', timestamp: 5, volume: 0.8 }, 
-  { id: 'ai_inst_2', effectId: 'sfx_002', timestamp: 12.5, volume: 1.0 }, 
-  { id: 'ai_inst_3', effectId: 'sfx_006', timestamp: 22, volume: 0.7 }, 
-];
-
-const mockTranscript = "Welcome to the Timbro podcast editor. In this episode, we'll discuss the future of AI in audio production. (Funny moment here!) It's a rapidly evolving field, with new tools and techniques emerging constantly. (Dramatic reveal here!) The potential for creators is immense, empowering them to achieve professional-quality results with greater ease. But with great power comes great responsibility. (Suspense builds...) We must ensure these tools are used ethically and to enhance creativity, not replace it. (Uplifting conclusion starts) Ultimately, Timbro aims to be your creative co-pilot on this exciting journey.";
 
 const algoliaAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID || '';
 const algoliaSearchApiKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY || '';
@@ -55,7 +34,6 @@ interface SoundEffectHitComponentProps {
   hit: Hit<AlgoliaSoundEffectHit>;
   selectedEffectInstance: SoundEffectInstance | null;
   setSelectedEffectInstance: React.Dispatch<React.SetStateAction<SoundEffectInstance | null>>;
-  // handleAddOrUpdateEffect: (effectId: string) => void; // If auto-adding on click
 }
 
 
@@ -68,6 +46,9 @@ function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInst
         onClick={() => {
           if (selectedEffectInstance?.isUserAdded) {
             // If in "Add New Effect" mode, select this sound for the new effect.
+            // Note: Algolia's objectID is the canonical ID from Firestore.
+            // The `hit.id` should be the custom sound effect ID (e.g. "sfx_001")
+            // if it was part of the indexed data. Ensure this `id` is what you want for `effectId`.
             const updatedInstance = { ...selectedEffectInstance, effectId: hit.id };
             setSelectedEffectInstance(updatedInstance);
             // User will click "Add Selected Effect" in inspector
@@ -101,7 +82,6 @@ export default function ProjectEditPage() {
   const [selectedEffectInstance, setSelectedEffectInstance] = useState<SoundEffectInstance | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  // const [searchTerm, setSearchTerm] = useState(''); // Handled by Algolia SearchBox
   const [filterTone, setFilterTone] = useState<Tone | 'All'>('All');
   const [isExporting, setIsExporting] = useState(false);
   
@@ -158,7 +138,7 @@ export default function ProjectEditPage() {
         effectId: '', 
         timestamp: clickedTime,
         isUserAdded: true,
-        volume: 1.0, // Default volume
+        volume: 1.0, 
       });
     }
   };
@@ -196,7 +176,7 @@ export default function ProjectEditPage() {
       finalEffectId = effectIdToUse;
     }
     
-    if (!finalEffectId && selectedEffectInstance.isUserAdded) { // only for new effects that haven't picked an sfx from library
+    if (!finalEffectId && selectedEffectInstance.isUserAdded) { 
         toast({title: "No Sound Effect Selected", description: "Please choose a sound effect from the library.", variant: "destructive"});
         return;
     }
@@ -210,9 +190,9 @@ export default function ProjectEditPage() {
     }
     toast({ title: selectedEffectInstance.isUserAdded && !effects.find(ef => ef.id === newEffect.id) ? "Effect Added" : "Effect Updated" });
     
-    if (selectedEffectInstance.isUserAdded && !effects.find(ef => ef.id === newEffect.id)) { // If it was a brand new effect being added
+    if (selectedEffectInstance.isUserAdded && !effects.find(ef => ef.id === newEffect.id)) { 
       setSelectedEffectInstance(null); 
-    } else { // If it was an existing effect being updated (e.g. volume change, or swap)
+    } else { 
       setSelectedEffectInstance(newEffect); 
     }
   };
@@ -358,7 +338,6 @@ export default function ProjectEditPage() {
                     onValueChange={(val) => {
                        const updatedEffect = { ...selectedEffectInstance, volume: val[0] / 100 };
                        setSelectedEffectInstance(updatedEffect);
-                       // No need to call handleAddOrUpdateEffect just for volume if it auto-saves
                        setEffects(effects.map(ef => ef.id === updatedEffect.id ? updatedEffect : ef));
                     }}
                   />
@@ -370,7 +349,7 @@ export default function ProjectEditPage() {
                   <Button variant="destructive" size="sm" onClick={handleDeleteEffect} className="w-full">
                     <Trash2 className="mr-2 h-4 w-4"/>Delete Effect
                   </Button>
-                  {selectedEffectInstance.isUserAdded && // Only show "Add" button if it's a new effect instance
+                  {selectedEffectInstance.isUserAdded && 
                     <Button size="sm" onClick={() => handleAddOrUpdateEffect()} className="w-full" disabled={!selectedEffectInstance.effectId}>
                       Add Selected Effect
                     </Button>
