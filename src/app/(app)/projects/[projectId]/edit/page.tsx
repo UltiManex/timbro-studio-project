@@ -10,14 +10,16 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { mockProjects } from '@/app/(app)/dashboard/page'; // Using mock data for now
+import { mockProjects } from '@/app/(app)/dashboard/page'; 
 import type { Project, SoundEffect, SoundEffectInstance, Tone } from '@/lib/types';
 import { AVAILABLE_TONES, EDITOR_NUDGE_INCREMENT_MS } from '@/lib/constants';
-import { Play, Pause, Rewind, FastForward, Save, Upload, Trash2, Search, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2 } from 'lucide-react';
+import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2 } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
 import { Slider } from '@/components/ui/slider';
+import { InstantSearch, SearchBox, Hits, Configure, Hit } from 'react-instantsearch-hooks-web';
+import algoliasearch from 'algoliasearch/lite';
 
-// Mock sound effect library
+// Mock sound effect library (remains for resolving details of existing/AI effects if not fully in Algolia hit)
 const mockSoundEffectsLibrary: SoundEffect[] = [
   { id: 'sfx_001', name: 'Comical Boing', tags: ['boing', 'jump', 'funny'], tone: ['Comedic'], previewUrl: '#' },
   { id: 'sfx_002', name: 'Dramatic Swell', tags: ['swell', 'tension', 'reveal'], tone: ['Dramatic', 'Suspenseful'], previewUrl: '#' },
@@ -31,12 +33,63 @@ const mockSoundEffectsLibrary: SoundEffect[] = [
 
 // Mock AI suggestions
 const mockAISuggestions: SoundEffectInstance[] = [
-  { id: 'ai_inst_1', effectId: 'sfx_001', timestamp: 5, volume: 0.8 }, // 5 seconds
-  { id: 'ai_inst_2', effectId: 'sfx_002', timestamp: 12.5, volume: 1.0 }, // 12.5 seconds
-  { id: 'ai_inst_3', effectId: 'sfx_006', timestamp: 22, volume: 0.7 }, // 22 seconds
+  { id: 'ai_inst_1', effectId: 'sfx_001', timestamp: 5, volume: 0.8 }, 
+  { id: 'ai_inst_2', effectId: 'sfx_002', timestamp: 12.5, volume: 1.0 }, 
+  { id: 'ai_inst_3', effectId: 'sfx_006', timestamp: 22, volume: 0.7 }, 
 ];
 
 const mockTranscript = "Welcome to the Timbro podcast editor. In this episode, we'll discuss the future of AI in audio production. (Funny moment here!) It's a rapidly evolving field, with new tools and techniques emerging constantly. (Dramatic reveal here!) The potential for creators is immense, empowering them to achieve professional-quality results with greater ease. But with great power comes great responsibility. (Suspense builds...) We must ensure these tools are used ethically and to enhance creativity, not replace it. (Uplifting conclusion starts) Ultimately, Timbro aims to be your creative co-pilot on this exciting journey.";
+
+const algoliaAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID || '';
+const algoliaSearchApiKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY || '';
+const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME || 'sound_effects';
+
+const searchClient = algoliasearch(algoliaAppId, algoliaSearchApiKey);
+
+interface AlgoliaSoundEffectHit extends SoundEffect {
+  objectID: string;
+  _highlightResult?: any;
+}
+
+interface SoundEffectHitComponentProps {
+  hit: Hit<AlgoliaSoundEffectHit>;
+  selectedEffectInstance: SoundEffectInstance | null;
+  setSelectedEffectInstance: React.Dispatch<React.SetStateAction<SoundEffectInstance | null>>;
+  // handleAddOrUpdateEffect: (effectId: string) => void; // If auto-adding on click
+}
+
+
+function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance }: SoundEffectHitComponentProps) {
+  return (
+    <li>
+      <Button
+        variant="ghost"
+        className="w-full justify-start text-left h-auto py-2"
+        onClick={() => {
+          if (selectedEffectInstance?.isUserAdded) {
+            // If in "Add New Effect" mode, select this sound for the new effect.
+            const updatedInstance = { ...selectedEffectInstance, effectId: hit.id };
+            setSelectedEffectInstance(updatedInstance);
+            // User will click "Add Selected Effect" in inspector
+          } else {
+            toast({ title: `Previewing: ${hit.name}` }); // Or actually play preview via a function
+          }
+        }}
+      >
+        <div className="flex items-center justify-between w-full">
+          <div className="flex-col">
+            <span className="font-medium text-sm">{hit.name}</span>
+            <div className="flex gap-1 mt-0.5">
+              {hit.tone.map(t => <ToneIcon key={t} tone={t as Tone} className="h-3 w-3" />)}
+            </div>
+          </div>
+          <Volume2 className="h-4 w-4 text-muted-foreground hover:text-primary" />
+        </div>
+      </Button>
+    </li>
+  );
+}
+
 
 export default function ProjectEditPage() {
   const params = useParams();
@@ -48,11 +101,11 @@ export default function ProjectEditPage() {
   const [selectedEffectInstance, setSelectedEffectInstance] = useState<SoundEffectInstance | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
+  // const [searchTerm, setSearchTerm] = useState(''); // Handled by Algolia SearchBox
   const [filterTone, setFilterTone] = useState<Tone | 'All'>('All');
   const [isExporting, setIsExporting] = useState(false);
   
-  const audioDuration = project?.duration || 60; // Default to 60s if no duration
+  const audioDuration = project?.duration || 60; 
 
   const waveformRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +113,6 @@ export default function ProjectEditPage() {
     const foundProject = mockProjects.find(p => p.id === projectId);
     if (foundProject) {
       setProject(foundProject);
-      // Simulate loading AI suggestions after a short delay
       setTimeout(() => {
         setEffects(mockAISuggestions.map(sfx => ({...sfx, isUserAdded: false})));
       }, 500);
@@ -70,7 +122,6 @@ export default function ProjectEditPage() {
     }
   }, [projectId, router]);
 
-  // Simulate audio playback
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isPlaying) {
@@ -94,27 +145,25 @@ export default function ProjectEditPage() {
     const percentage = clickX / rect.width;
     const clickedTime = audioDuration * percentage;
     
-    // Check if clicked on an existing marker
     const markerHit = effects.find(ef => {
       const markerPos = (ef.timestamp / audioDuration) * rect.width;
-      return Math.abs(clickX - markerPos) < 8; // 8px hit radius
+      return Math.abs(clickX - markerPos) < 8; 
     });
 
     if (markerHit) {
       setSelectedEffectInstance(markerHit);
     } else {
-      // Add new effect mode
       setSelectedEffectInstance({
         id: `new_${Date.now()}`,
-        effectId: '', // User will pick this
+        effectId: '', 
         timestamp: clickedTime,
         isUserAdded: true,
+        volume: 1.0, // Default volume
       });
     }
   };
   
   const getHighlightedWordIndex = () => {
-    // This is a very simplified mock. Real implementation needs word timestamps.
     const words = mockTranscript.split(' ');
     const wordsPerSecond = words.length / audioDuration;
     return Math.floor(currentTime * wordsPerSecond);
@@ -137,21 +186,21 @@ export default function ProjectEditPage() {
     toast({ title: "Effect removed" });
   };
   
-  const handleAddOrUpdateEffect = (effectId?: string) => {
+  const handleAddOrUpdateEffect = (effectIdToUse?: string) => {
     if (!selectedEffectInstance) return;
     
     let finalEffectId = selectedEffectInstance.effectId;
-    if (selectedEffectInstance.isUserAdded && effectId) { // For new effects being added
-      finalEffectId = effectId;
-    } else if (!selectedEffectInstance.isUserAdded && effectId) { // For swapping existing effects
-      finalEffectId = effectId;
+    if (selectedEffectInstance.isUserAdded && effectIdToUse) { 
+      finalEffectId = effectIdToUse;
+    } else if (!selectedEffectInstance.isUserAdded && effectIdToUse) { 
+      finalEffectId = effectIdToUse;
     }
     
-    if (!finalEffectId) {
+    if (!finalEffectId && selectedEffectInstance.isUserAdded) { // only for new effects that haven't picked an sfx from library
         toast({title: "No Sound Effect Selected", description: "Please choose a sound effect from the library.", variant: "destructive"});
         return;
     }
-
+    
     const newEffect = { ...selectedEffectInstance, effectId: finalEffectId };
     
     if (effects.find(ef => ef.id === newEffect.id)) {
@@ -160,22 +209,19 @@ export default function ProjectEditPage() {
       setEffects([...effects, newEffect]);
     }
     toast({ title: selectedEffectInstance.isUserAdded && !effects.find(ef => ef.id === newEffect.id) ? "Effect Added" : "Effect Updated" });
-    // Keep inspector open for existing effects, close for newly added one (or based on UX preference)
-    if (selectedEffectInstance.isUserAdded && !effects.find(ef => ef.id === newEffect.id)) {
+    
+    if (selectedEffectInstance.isUserAdded && !effects.find(ef => ef.id === newEffect.id)) { // If it was a brand new effect being added
       setSelectedEffectInstance(null); 
-    } else {
-      setSelectedEffectInstance(newEffect); // keep inspector open with updated effect
+    } else { // If it was an existing effect being updated (e.g. volume change, or swap)
+      setSelectedEffectInstance(newEffect); 
     }
   };
   
   const handleExport = async () => {
     setIsExporting(true);
     toast({ title: "Export Started", description: "Your audio is being mixed. You'll be notified upon completion." });
-    // Simulate export process
     await new Promise(resolve => setTimeout(resolve, 5000)); 
-    setProject(prev => prev ? ({...prev, status: 'Completed', finalAudioUrl: '#mock-download-link' }) : null); // Update project status locally
-    // In a real app, this would trigger a backend process, and status updates would come via polling or websockets.
-    // Email notification EXP-02 is a backend task.
+    setProject(prev => prev ? ({...prev, status: 'Completed', finalAudioUrl: '#mock-download-link' }) : null); 
     setIsExporting(false);
     toast({ title: "Export Complete!", description: "Your audio is ready for download from the dashboard." });
     router.push('/dashboard');
@@ -184,17 +230,28 @@ export default function ProjectEditPage() {
   if (!project) {
     return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /> Loading project...</div>;
   }
-
-  const filteredLibrary = mockSoundEffectsLibrary.filter(sfx => 
-    (sfx.name.toLowerCase().includes(searchTerm.toLowerCase()) || sfx.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))) &&
-    (filterTone === 'All' || sfx.tone.includes(filterTone))
-  );
   
   const currentEffectDetails = selectedEffectInstance ? mockSoundEffectsLibrary.find(libSfx => libSfx.id === selectedEffectInstance.effectId) : null;
 
+  if (!algoliaAppId || !algoliaSearchApiKey) {
+     return (
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-theme(spacing.28))] p-4">
+            <Card className="w-full max-w-md text-center">
+                <CardHeader>
+                    <CardTitle>Algolia Configuration Missing</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">
+                        Please ensure <code>NEXT_PUBLIC_ALGOLIA_APP_ID</code> and <code>NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY</code> are set in your <code>.env</code> file.
+                    </p>
+                </CardContent>
+            </Card>
+        </div>
+     );
+  }
+
   return (
-    <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden"> {/* Adjust height based on header */}
-      {/* Header Bar */}
+    <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b bg-card">
         <div>
           <h1 className="text-xl font-semibold font-headline">{project.name}</h1>
@@ -209,11 +266,8 @@ export default function ProjectEditPage() {
         </div>
       </div>
 
-      {/* Main Editor Layout (Waveform + Transcript above, Inspector + Library below) */}
       <div className="flex-1 grid md:grid-cols-3 gap-4 p-4 overflow-hidden">
-        {/* Left Column: Waveform & Transcript */}
         <div className="md:col-span-2 flex flex-col gap-4 overflow-hidden">
-          {/* Waveform Display & Controls */}
           <Card className="flex-shrink-0">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg flex items-center"><Waves className="mr-2 h-5 w-5 text-primary"/>Waveform</CardTitle>
@@ -228,16 +282,13 @@ export default function ProjectEditPage() {
             </CardHeader>
             <CardContent>
               <div ref={waveformRef} onClick={handleWaveformClick} className="h-32 bg-muted rounded-md relative cursor-crosshair flex items-center" aria-label="Audio waveform, click to add or select effect">
-                 {/* Mock waveform bars */}
                 {Array.from({ length: 50 }).map((_, i) => (
                   <div key={i} className="w-1 bg-primary/30 rounded-full" style={{ height: `${Math.random() * 80 + 10}%`, marginRight: '2px' }}></div>
                 ))}
-                {/* Current time indicator */}
                 <div className="absolute top-0 bottom-0 bg-primary w-0.5" style={{ left: `${(currentTime / audioDuration) * 100}%` }}></div>
-                {/* Effect markers */}
                 {effects.map(ef => {
-                  const effectDetails = mockSoundEffectsLibrary.find(libSfx => libSfx.id === ef.effectId);
-                  const toneForIcon = ef.isUserAdded ? 'User' : (effectDetails?.tone[0] || project.selectedTone);
+                  const effectDetailsMarker = mockSoundEffectsLibrary.find(libSfx => libSfx.id === ef.effectId);
+                  const toneForIcon = ef.isUserAdded ? 'User' : (effectDetailsMarker?.tone[0] || project.selectedTone);
                   return (
                     <div 
                       key={ef.id} 
@@ -245,7 +296,7 @@ export default function ProjectEditPage() {
                         ${selectedEffectInstance?.id === ef.id ? 'bg-primary scale-125 z-10' : 'bg-accent hover:bg-primary/80'}`}
                       style={{ left: `${(ef.timestamp / audioDuration) * 100}%` }}
                       onClick={(e) => { e.stopPropagation(); setSelectedEffectInstance(ef); }}
-                      title={effectDetails?.name || (ef.isUserAdded ? 'New Effect' : 'Unknown Effect')}
+                      title={effectDetailsMarker?.name || (ef.isUserAdded ? 'New Effect' : 'Unknown Effect')}
                     >
                       <ToneIcon tone={toneForIcon as Tone | 'User'} className="h-4 w-4 text-white" />
                     </div>
@@ -263,11 +314,10 @@ export default function ProjectEditPage() {
             </CardContent>
           </Card>
 
-          {/* Transcript Display */}
           <Card className="flex-1 overflow-hidden">
             <CardHeader><CardTitle className="text-lg">Transcript</CardTitle></CardHeader>
             <CardContent className="h-full pb-6">
-              <ScrollArea className="h-[calc(100%-0rem)] pr-4"> {/* Adjust height for parent padding */}
+              <ScrollArea className="h-[calc(100%-0rem)] pr-4">
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
                   {mockTranscript.split(' ').map((word, index) => (
                     <span key={index} className={index === getHighlightedWordIndex() ? 'bg-primary/30 rounded' : ''}>
@@ -280,9 +330,7 @@ export default function ProjectEditPage() {
           </Card>
         </div>
 
-        {/* Right Column: Inspector Panel & Sound Library */}
         <div className="md:col-span-1 flex flex-col gap-4 overflow-hidden">
-          {/* Inspector Panel */}
           <Card className="flex-shrink-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg flex items-center">
@@ -310,6 +358,7 @@ export default function ProjectEditPage() {
                     onValueChange={(val) => {
                        const updatedEffect = { ...selectedEffectInstance, volume: val[0] / 100 };
                        setSelectedEffectInstance(updatedEffect);
+                       // No need to call handleAddOrUpdateEffect just for volume if it auto-saves
                        setEffects(effects.map(ef => ef.id === updatedEffect.id ? updatedEffect : ef));
                     }}
                   />
@@ -321,16 +370,14 @@ export default function ProjectEditPage() {
                   <Button variant="destructive" size="sm" onClick={handleDeleteEffect} className="w-full">
                     <Trash2 className="mr-2 h-4 w-4"/>Delete Effect
                   </Button>
-                  {selectedEffectInstance.isUserAdded && !currentEffectDetails &&
+                  {selectedEffectInstance.isUserAdded && // Only show "Add" button if it's a new effect instance
                     <Button size="sm" onClick={() => handleAddOrUpdateEffect()} className="w-full" disabled={!selectedEffectInstance.effectId}>
                       Add Selected Effect
                     </Button>
                   }
-                  {/* Swap options for existing effects */}
                   {!selectedEffectInstance.isUserAdded && currentEffectDetails && (
                      <div className="pt-2 border-t">
                         <p className="text-sm font-medium mb-1">Swap Effect:</p>
-                        {/* Show a few related effects - very simplified */}
                         {mockSoundEffectsLibrary.filter(sfx => sfx.id !== currentEffectDetails.id && sfx.tone.some(t => currentEffectDetails.tone.includes(t))).slice(0,2).map(swapSfx => (
                            <Button key={swapSfx.id} variant="outline" size="sm" className="w-full mb-1 text-xs" onClick={() => handleAddOrUpdateEffect(swapSfx.id)}>
                              Swap to: {swapSfx.name}
@@ -344,74 +391,63 @@ export default function ProjectEditPage() {
               )}
             </CardContent>
           </Card>
-
-          {/* Sound Library */}
-          <Card className="flex-1 overflow-hidden">
-            <CardHeader>
-              <CardTitle className="text-lg">Sound Library</CardTitle>
-              <div className="flex gap-2 mt-2">
-                <div className="relative flex-grow">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input type="search" placeholder="Search effects..." className="pl-8 w-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          
+          <InstantSearch
+            searchClient={searchClient}
+            indexName={algoliaIndexName}
+            insights={false} 
+          >
+            <Card className="flex-1 overflow-hidden">
+              <CardHeader>
+                <CardTitle className="text-lg">Sound Library</CardTitle>
+                <div className="flex gap-2 mt-2">
+                  <div className="relative flex-grow">
+                    <SearchBox
+                      placeholder="Search effects..."
+                      classNames={{
+                        root: 'relative',
+                        form: 'h-full',
+                        input: 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-8',
+                        submitIcon: 'absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground',
+                        resetIcon: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer',
+                        loadingIndicator: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground',
+                      }}
+                    />
+                  </div>
+                  <Select value={filterTone} onValueChange={(value) => setFilterTone(value as Tone | 'All')}>
+                    <SelectTrigger className="w-[150px]" aria-label="Filter by tone">
+                       <ListFilter className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <SelectValue placeholder="Filter by Tone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="All">All Tones</SelectItem>
+                      {AVAILABLE_TONES.map(tone => (
+                        <SelectItem key={tone} value={tone}><ToneIcon tone={tone as Tone} className="mr-2 h-4 w-4 inline"/> {tone}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Configure filters={filterTone === 'All' ? undefined : `tone:"${filterTone}"`} />
                 </div>
-                <Select value={filterTone} onValueChange={(value) => setFilterTone(value as Tone | 'All')}>
-                  <SelectTrigger className="w-[150px]" aria-label="Filter by tone">
-                     <ListFilter className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Filter by Tone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All Tones</SelectItem>
-                    {AVAILABLE_TONES.map(tone => (
-                      <SelectItem key={tone} value={tone}><ToneIcon tone={tone as Tone} className="mr-2 h-4 w-4 inline"/> {tone}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent className="h-full pb-6">
-              <ScrollArea className="h-[calc(100%-2rem)] pr-2"> {/* Adjust height */}
-                {filteredLibrary.length > 0 ? (
+              </CardHeader>
+              <CardContent className="h-full pb-6">
+                <ScrollArea className="h-[calc(100%-2rem)] pr-2">
                   <ul className="space-y-1">
-                    {filteredLibrary.map(sfx => (
-                      <li key={sfx.id}>
-                        <Button 
-                          variant="ghost" 
-                          className="w-full justify-start text-left h-auto py-2"
-                          onClick={() => {
-                            if (selectedEffectInstance?.isUserAdded) {
-                              // If in "Add New Effect" mode, select this sound for the new effect.
-                              const updatedInstance = {...selectedEffectInstance, effectId: sfx.id};
-                              setSelectedEffectInstance(updatedInstance);
-                              // Optionally auto-add, or wait for explicit "Add" button in inspector
-                              // handleAddOrUpdateEffect(sfx.id); 
-                            } else {
-                               toast({title: `Previewing: ${sfx.name}`}); // Or actually play preview
-                            }
-                          }}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex-col">
-                               <span className="font-medium text-sm">{sfx.name}</span>
-                               <div className="flex gap-1 mt-0.5">
-                                {sfx.tone.map(t => <ToneIcon key={t} tone={t as Tone} className="h-3 w-3"/>)}
-                               </div>
-                            </div>
-                            <Volume2 className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                          </div>
-                        </Button>
-                      </li>
-                    ))}
+                    <Hits<AlgoliaSoundEffectHit> 
+                      hitComponent={(props) => 
+                        <SoundEffectHitItem 
+                          {...props} 
+                          selectedEffectInstance={selectedEffectInstance} 
+                          setSelectedEffectInstance={setSelectedEffectInstance}
+                        />
+                      } 
+                    />
                   </ul>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No sound effects match your criteria.</p>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </InstantSearch>
         </div>
       </div>
     </div>
   );
 }
-
-    
