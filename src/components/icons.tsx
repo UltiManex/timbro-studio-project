@@ -72,7 +72,7 @@ export const TrustBadgeIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-export const ToneIcon = ({ tone, ...props }: { tone: 'Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational' | 'User' } & SVGProps<SVGSVGElement>) => {
+export const ToneIcon = ({ tone, className, ...props }: { tone: 'Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational' | 'User' } & SVGProps<SVGSVGElement>) => {
   const iconMap = {
     Comedic: '😂',
     Dramatic: '🎭',
@@ -80,9 +80,30 @@ export const ToneIcon = ({ tone, ...props }: { tone: 'Comedic' | 'Dramatic' | 'S
     Inspirational: '✨',
     User: '⭐',
   };
+  
+  // Props might include width/height from className, which Tailwind will apply.
+  // If not, SVG defaults to its intrinsic size or needs explicit width/height.
+  // Using a viewBox allows scaling. Font size inside SVG text is relative to this viewBox.
   return (
-    <text fontSize="18" x="2" y="18" {...props}>
-      {iconMap[tone]}
-    </text>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20" // A common viewBox for small icons
+      fill="currentColor" // Inherit text color for the emoji
+      className={className} // Apply passed className for sizing (h-5 w-5 etc.) and other styles
+      // Default width/height can be set here if needed, but className usually handles it
+      // width={props.width || "20"} 
+      // height={props.height || "20"}
+      {...props} // Spread other SVG props like onClick
+    >
+      <text 
+        x="50%" 
+        y="50%" 
+        dominantBaseline="central" 
+        textAnchor="middle" 
+        fontSize="14" // Adjust font size to fit well within the 20x20 viewBox
+      >
+        {iconMap[tone]}
+      </text>
+    </svg>
   );
 };
