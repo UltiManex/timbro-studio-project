@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter }sfrom 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { mockProjects } from '@/app/(app)/dashboard/page'; // Using mock data for now
 import type { Project, SoundEffect, SoundEffectInstance, Tone } from '@/lib/types';
 import { AVAILABLE_TONES, EDITOR_NUDGE_INCREMENT_MS } from '@/lib/constants';
-import { Play, Pause, Rewind, FastForward, Save, Upload, Trash2, Search, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download } from 'lucide-react';
+import { Play, Pause, Rewind, FastForward, Save, Upload, Trash2, Search, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2 } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
 import { Slider } from '@/components/ui/slider';
 
@@ -246,7 +247,7 @@ export default function ProjectEditPage() {
                       onClick={(e) => { e.stopPropagation(); setSelectedEffectInstance(ef); }}
                       title={effectDetails?.name || (ef.isUserAdded ? 'New Effect' : 'Unknown Effect')}
                     >
-                      <ToneIcon tone={toneForIcon} className="h-4 w-4 text-white" />
+                      <ToneIcon tone={toneForIcon as Tone | 'User'} className="h-4 w-4 text-white" />
                     </div>
                   );
                 })}
@@ -361,7 +362,7 @@ export default function ProjectEditPage() {
                   <SelectContent>
                     <SelectItem value="All">All Tones</SelectItem>
                     {AVAILABLE_TONES.map(tone => (
-                      <SelectItem key={tone} value={tone}><ToneIcon tone={tone} className="mr-2 h-4 w-4 inline"/> {tone}</SelectItem>
+                      <SelectItem key={tone} value={tone}><ToneIcon tone={tone as Tone} className="mr-2 h-4 w-4 inline"/> {tone}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -392,7 +393,7 @@ export default function ProjectEditPage() {
                             <div className="flex-col">
                                <span className="font-medium text-sm">{sfx.name}</span>
                                <div className="flex gap-1 mt-0.5">
-                                {sfx.tone.map(t => <ToneIcon key={t} tone={t} className="h-3 w-3"/>)}
+                                {sfx.tone.map(t => <ToneIcon key={t} tone={t as Tone} className="h-3 w-3"/>)}
                                </div>
                             </div>
                             <Volume2 className="h-4 w-4 text-muted-foreground hover:text-primary" />
@@ -412,3 +413,5 @@ export default function ProjectEditPage() {
     </div>
   );
 }
+
+    
