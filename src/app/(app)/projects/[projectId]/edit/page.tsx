@@ -39,35 +39,31 @@ interface SoundEffectHitComponentProps {
 
 function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance }: SoundEffectHitComponentProps) {
   return (
-    <li>
-      <Button
-        variant="ghost"
-        className="w-full justify-start text-left h-auto py-2"
-        onClick={() => {
-          if (selectedEffectInstance?.isUserAdded) {
-            // If in "Add New Effect" mode, select this sound for the new effect.
-            // Note: Algolia's objectID is the canonical ID from Firestore.
-            // The `hit.id` should be the custom sound effect ID (e.g. "sfx_001")
-            // if it was part of the indexed data. Ensure this `id` is what you want for `effectId`.
-            const updatedInstance = { ...selectedEffectInstance, effectId: hit.id };
-            setSelectedEffectInstance(updatedInstance);
-            // User will click "Add Selected Effect" in inspector
-          } else {
-            toast({ title: `Previewing: ${hit.name}` }); // Or actually play preview via a function
-          }
-        }}
-      >
-        <div className="flex items-center justify-between w-full">
-          <div className="flex-col">
-            <span className="font-medium text-sm">{hit.name}</span>
-            <div className="flex gap-1 mt-0.5">
-              {hit.tone.map(t => <ToneIcon key={t} tone={t as Tone} className="h-3 w-3" />)}
-            </div>
+    // The <li> tag was removed from here, as <Hits> provides it.
+    <Button
+      variant="ghost"
+      className="w-full justify-start text-left h-auto py-2"
+      onClick={() => {
+        if (selectedEffectInstance?.isUserAdded) {
+          // If in "Add New Effect" mode, select this sound for the new effect.
+          const updatedInstance = { ...selectedEffectInstance, effectId: hit.id };
+          setSelectedEffectInstance(updatedInstance);
+          // User will click "Add Selected Effect" in inspector
+        } else {
+          toast({ title: `Previewing: ${hit.name}` }); // Or actually play preview via a function
+        }
+      }}
+    >
+      <div className="flex items-center justify-between w-full">
+        <div className="flex-col">
+          <span className="font-medium text-sm">{hit.name}</span>
+          <div className="flex gap-1 mt-0.5">
+            {hit.tone.map(t => <ToneIcon key={t} tone={t as Tone} className="h-3 w-3" />)}
           </div>
-          <Volume2 className="h-4 w-4 text-muted-foreground hover:text-primary" />
         </div>
-      </Button>
-    </li>
+        <Volume2 className="h-4 w-4 text-muted-foreground hover:text-primary" />
+      </div>
+    </Button>
   );
 }
 
