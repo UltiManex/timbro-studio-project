@@ -39,6 +39,7 @@ interface SoundEffectHitComponentProps {
 
 
 function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance, onPreview }: SoundEffectHitComponentProps) {
+  // console.log(`SoundEffectHitItem for "${hit.name}": previewUrl from Algolia is "${hit.previewUrl}"`);
   return (
     <Button
       variant="ghost"
@@ -117,12 +118,11 @@ export default function ProjectEditPage() {
     if (previewAudioRef.current) {
       previewAudioRef.current.pause();
       previewAudioRef.current.currentTime = 0;
-      previewAudioRef.current.src = ""; 
-      previewAudioRef.current.crossOrigin = "anonymous"; // Try setting crossOrigin
+      previewAudioRef.current.src = ""; // Clear previous source
 
       if (previewUrl && previewUrl.trim() !== '' && previewUrl !== '#' && previewUrl !== 'undefined') {
         previewAudioRef.current.src = previewUrl;
-        previewAudioRef.current.load(); 
+        previewAudioRef.current.load(); // Explicitly load the new source
         
         const playPromise = previewAudioRef.current.play();
 
