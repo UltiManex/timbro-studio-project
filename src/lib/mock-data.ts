@@ -3,13 +3,12 @@ import type { Project, SoundEffect, SoundEffectInstance, Tone } from '@/lib/type
 
 export const mockProjects: Project[] = [
   { id: 'proj_1', name: 'My First Podcast Episode', date: new Date(Date.now() - 86400000 * 2).toISOString(), status: 'Ready for Review', audioFileName: 'episode_01_raw.mp3', duration: 1830, selectedTone: 'Comedic', defaultEffectPlacement: 'ai-optimized' },
-  { id: 'proj_2', name: 'Tech Talk Weekly', date: new Date(Date.now() - 86400000 * 5).toISOString(), status: 'Completed', audioFileName: 'techtalk_final_v2.mp3', duration: 2400, selectedTone: 'Inspirational', finalAudioUrl: '#', defaultEffectPlacement: 'ai-optimized' },
+  { id: 'proj_2', name: 'Tech Talk Weekly', date: new Date(Date.now() - 86400000 * 5).toISOString(), status: 'Completed', audioFileName: 'techtalk_final_v2.mp3', duration: 2400, selectedTone: 'Inspirational', finalAudioUrl: '/sounds/placeholder-podcast.mp3', defaultEffectPlacement: 'ai-optimized' }, // Using a local placeholder
   { id: 'proj_3', name: 'Interview with Jane Doe', date: new Date(Date.now() - 86400000 * 1).toISOString(), status: 'Processing', audioFileName: 'interview_jane_raw.wav', duration: 3600, selectedTone: 'Dramatic', defaultEffectPlacement: 'ai-optimized' },
   { id: 'proj_4', name: 'Quick Update', date: new Date(Date.now() - 86400000 * 10).toISOString(), status: 'Error', audioFileName: 'update_audio.m4a', duration: 300, selectedTone: 'Suspenseful', defaultEffectPlacement: 'manual-only' },
 ];
 
-// Note: You will need to download these MP3s (or similar short sound effects)
-// and place them in your `public/sounds/` directory for these preview URLs to work.
+// Ensure these MP3 files exist in your `public/sounds/` directory.
 export const mockSoundEffectsLibrary: SoundEffect[] = [
   { id: 'sfx_001', name: 'Comical Boing', tags: ['boing', 'jump', 'funny'], tone: ['Comedic'], previewUrl: '/sounds/comical-boing.mp3' },
   { id: 'sfx_002', name: 'Dramatic Swell', tags: ['swell', 'tension', 'reveal'], tone: ['Dramatic', 'Suspenseful'], previewUrl: '/sounds/dramatic-swell.mp3' },
@@ -19,6 +18,8 @@ export const mockSoundEffectsLibrary: SoundEffect[] = [
   { id: 'sfx_006', name: 'Heartbeat', tags: ['heart', 'pulse', 'tense'], tone: ['Suspenseful', 'Dramatic'], previewUrl: '/sounds/heartbeat.mp3' },
   { id: 'sfx_007', name: 'Record Scratch', tags: ['stop', 'interrupt', 'funny'], tone: ['Comedic'], previewUrl: '/sounds/record-scratch.mp3' },
   { id: 'sfx_008', name: 'Inspiring Piano Chord', tags: ['piano', 'hopeful', 'positive'], tone: ['Inspirational'], previewUrl: '/sounds/inspiring-chord.mp3' },
+  { id: 'sfx_009', name: 'Interface Click', tags: ['ui', 'click', 'button'], tone: ['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational'], previewUrl: '/sounds/interface-click.mp3' }, // Generic click
+  { id: 'sfx_010', name: 'Magic Wand Sparkle', tags: ['magic', 'sparkle', 'fantasy'], tone: ['Inspirational', 'Comedic'], previewUrl: '/sounds/magic-sparkle.mp3' },
 ];
 
 export const mockAISuggestions: SoundEffectInstance[] = [
