@@ -39,8 +39,6 @@ interface SoundEffectHitComponentProps {
 
 
 function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance, onPreview }: SoundEffectHitComponentProps) {
-  // console.log(`SoundEffectHitItem for "${hit.name}": previewUrl from Algolia is "${hit.previewUrl}"`);
-  
   return (
     <Button
       variant="ghost"
@@ -119,14 +117,12 @@ export default function ProjectEditPage() {
     if (previewAudioRef.current) {
       previewAudioRef.current.pause();
       previewAudioRef.current.currentTime = 0;
-      // Reset src to ensure a clean state before loading a new source.
-      // This can help if the audio element is in an error state from a previous attempt.
       previewAudioRef.current.src = ""; 
-      previewAudioRef.current.load(); // Important to call load() after changing src or to reset.
+      previewAudioRef.current.crossOrigin = "anonymous"; // Try setting crossOrigin
 
       if (previewUrl && previewUrl.trim() !== '' && previewUrl !== '#' && previewUrl !== 'undefined') {
         previewAudioRef.current.src = previewUrl;
-        previewAudioRef.current.load(); // Call load() again after setting the new src.
+        previewAudioRef.current.load(); 
         
         const playPromise = previewAudioRef.current.play();
 
@@ -137,10 +133,13 @@ export default function ProjectEditPage() {
             })
             .catch(error => {
               console.error(`Error playing preview for "${effectName}" (URL: ${previewUrl}):`, error);
+              if (previewAudioRef.current && previewAudioRef.current.error) {
+                console.error('Audio Element Error Code:', previewAudioRef.current.error.code);
+                console.error('Audio Element Error Message:', previewAudioRef.current.error.message);
+              }
               toast({ title: "Playback Error", description: `Could not play ${effectName}. Check console.`, variant: "destructive" });
             });
         } else {
-           // This case is unlikely with modern browsers for .play()
            console.warn(`Play promise for "${effectName}" (URL: ${previewUrl}) was undefined. Audio might not play.`);
            toast({ title: "Playback Issue", description: `Could not initiate playback for ${effectName}.`, variant: "destructive" });
         }
