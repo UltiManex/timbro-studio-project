@@ -39,6 +39,9 @@ interface SoundEffectHitComponentProps {
 
 
 function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance, onPreview }: SoundEffectHitComponentProps) {
+  // Log the previewUrl from the Algolia hit
+  console.log(`SoundEffectHitItem for "${hit.name}": previewUrl from Algolia is "${hit.previewUrl}"`);
+  
   return (
     <Button
       variant="ghost"
@@ -278,6 +281,7 @@ export default function ProjectEditPage() {
             </CardHeader>
             <CardContent>
               <div ref={waveformRef} onClick={handleWaveformClick} className="h-32 bg-muted rounded-md relative cursor-crosshair flex items-center" aria-label="Audio waveform, click to add or select effect">
+                {/* This is a mock waveform visualization */}
                 {Array.from({ length: 50 }).map((_, i) => (
                   <div key={i} className="w-1 bg-primary/30 rounded-full" style={{ height: `${Math.random() * 80 + 10}%`, marginRight: '2px' }}></div>
                 ))}
@@ -357,7 +361,7 @@ export default function ProjectEditPage() {
                        setEffects(effects.map(ef => ef.id === updatedEffect.id ? updatedEffect : ef));
                     }}
                   />
-                  {currentEffectDetails && !selectedEffectInstance.isUserAdded && (
+                  {currentEffectDetails && ( // Show preview only if we have details
                     <Button variant="outline" size="sm" className="w-full" onClick={() => handlePreviewEffect(currentEffectDetails.previewUrl, currentEffectDetails.name)}>
                         <Play className="mr-2 h-4 w-4"/> Preview Effect
                     </Button>
