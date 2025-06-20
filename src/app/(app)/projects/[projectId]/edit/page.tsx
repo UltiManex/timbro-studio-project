@@ -39,6 +39,7 @@ interface SoundEffectHitComponentProps {
 
 
 function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance, onPreview }: SoundEffectHitComponentProps) {
+  // console.log(`SoundEffectHitItem for "${hit.name}": previewUrl from Algolia is "${hit.previewUrl}"`);
   return (
     <Button
       variant="ghost"
@@ -121,8 +122,11 @@ export default function ProjectEditPage() {
 
       if (previewUrl && previewUrl.trim() !== '' && !previewUrl.startsWith('#') && previewUrl !== 'undefined') {
         previewAudioRef.current.src = previewUrl;
-        // previewAudioRef.current.crossOrigin = "anonymous"; // Removed this line
-        previewAudioRef.current.load();
+        // previewAudioRef.current.crossOrigin = "anonymous"; // Removed based on previous troubleshooting for local files
+        
+        // It's good practice to call load() after setting a new src,
+        // though many browsers do it automatically.
+        previewAudioRef.current.load(); 
         
         const playPromise = previewAudioRef.current.play();
 
@@ -140,11 +144,12 @@ export default function ProjectEditPage() {
               toast({ title: "Playback Error", description: `Could not play ${effectName}. Check console.`, variant: "destructive" });
             });
         } else {
+           // This case should be rare for modern browsers if play() is called correctly.
            console.warn(`Play promise for "${effectName}" (URL: ${previewUrl}) was undefined. Audio might not play.`);
            toast({ title: "Playback Issue", description: `Could not initiate playback for ${effectName}.`, variant: "destructive" });
         }
       } else {
-        toast({ title: "No Preview Available", description: `Preview for ${effectName} is not set up.`, variant: "destructive" });
+        toast({ title: "No Preview Available", description: `Preview for ${effectName} is not set up or URL is invalid.`, variant: "destructive" });
       }
     }
   };
@@ -263,6 +268,10 @@ export default function ProjectEditPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden">
+      {/* 
+        The audio element is hidden. It's controlled programmatically.
+        We only need one instance of it.
+      */}
       <audio ref={previewAudioRef} className="hidden" />
       <div className="flex items-center justify-between p-4 border-b bg-card">
         <div>
@@ -294,10 +303,13 @@ export default function ProjectEditPage() {
             </CardHeader>
             <CardContent>
               <div ref={waveformRef} onClick={handleWaveformClick} className="h-32 bg-muted rounded-md relative cursor-crosshair flex items-center" aria-label="Audio waveform, click to add or select effect">
+                {/* This is a placeholder for waveform visualization */}
                 {Array.from({ length: 50 }).map((_, i) => (
                   <div key={i} className="w-1 bg-primary/30 rounded-full" style={{ height: `${Math.random() * 80 + 10}%`, marginRight: '2px' }}></div>
                 ))}
+                {/* Playhead */}
                 <div className="absolute top-0 bottom-0 bg-primary w-0.5" style={{ left: `${(currentTime / audioDuration) * 100}%` }}></div>
+                {/* Effect Markers */}
                 {effects.map(ef => {
                   const effectDetailsMarker = mockSoundEffectsLibrary.find(libSfx => libSfx.id === ef.effectId);
                   const toneForIcon = ef.isUserAdded ? 'User' : (effectDetailsMarker?.tone[0] || project.selectedTone);
@@ -329,7 +341,7 @@ export default function ProjectEditPage() {
           <Card className="flex-1 overflow-hidden">
             <CardHeader><CardTitle className="text-lg">Transcript</CardTitle></CardHeader>
             <CardContent className="h-full pb-6">
-              <ScrollArea className="h-[calc(100%-0rem)] pr-4">
+              <ScrollArea className="h-[calc(100%-0rem)] pr-4"> {/* Adjust height as needed */}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
                   {mockTranscript.split(' ').map((word, index) => (
                     <span key={index} className={index === getHighlightedWordIndex() ? 'bg-primary/30 rounded' : ''}>
@@ -368,12 +380,14 @@ export default function ProjectEditPage() {
                     max={100} step={1} 
                     className="my-1"
                     onValueChange={(val) => {
+                       // Debounce or update on drag end for performance if needed
                        const updatedEffect = { ...selectedEffectInstance, volume: val[0] / 100 };
                        setSelectedEffectInstance(updatedEffect);
+                       // Update the main effects array
                        setEffects(effects.map(ef => ef.id === updatedEffect.id ? updatedEffect : ef));
                     }}
                   />
-                  {currentEffectDetails && ( 
+                  {currentEffectDetails && ( // Only show if it's an existing effect from library
                     <Button variant="outline" size="sm" className="w-full" onClick={() => handlePreviewEffect(currentEffectDetails.previewUrl, currentEffectDetails.name)}>
                         <Play className="mr-2 h-4 w-4"/> Preview Effect
                     </Button>
@@ -386,6 +400,7 @@ export default function ProjectEditPage() {
                       Add Selected Effect
                     </Button>
                   }
+                  {/* Swap functionality example, could be more sophisticated */}
                   {!selectedEffectInstance.isUserAdded && currentEffectDetails && (
                      <div className="pt-2 border-t">
                         <p className="text-sm font-medium mb-1">Swap Effect:</p>
@@ -403,10 +418,11 @@ export default function ProjectEditPage() {
             </CardContent>
           </Card>
           
+          {/* Sound Library with Algolia */}
           <InstantSearch
             searchClient={searchClient}
             indexName={algoliaIndexName}
-            insights={false} 
+            insights={false} // Consider enabling insights in production if you use Algolia analytics
           >
             <Card className="flex-1 overflow-hidden">
               <CardHeader>
@@ -418,10 +434,10 @@ export default function ProjectEditPage() {
                       classNames={{
                         root: 'relative',
                         form: 'h-full',
-                        input: 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-8',
+                        input: 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-8', // Added pl-8 for icon
                         submitIcon: 'absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground',
                         resetIcon: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer',
-                        loadingIndicator: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground',
+                        loadingIndicator: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground', // Example
                       }}
                     />
                   </div>
@@ -441,7 +457,7 @@ export default function ProjectEditPage() {
                 </div>
               </CardHeader>
               <CardContent className="h-full pb-6">
-                <ScrollArea className="h-[calc(100%-2rem)] pr-2">
+                <ScrollArea className="h-[calc(100%-2rem)] pr-2"> {/* Adjust height based on header/footer */}
                   <ul className="space-y-1">
                     <Hits<AlgoliaSoundEffectHit> 
                       hitComponent={(props) => 
@@ -463,4 +479,5 @@ export default function ProjectEditPage() {
     </div>
   );
 }
+
 
