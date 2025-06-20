@@ -120,7 +120,7 @@ export default function ProjectEditPage() {
 
   const handlePreviewEffect = (previewUrl: string, effectName: string) => {
     if (previewAudioRef.current) {
-      if (previewUrl && previewUrl !== '#') {
+      if (previewUrl && previewUrl !== '#' && previewUrl !== 'undefined') { // Check for undefined string as well
         previewAudioRef.current.src = previewUrl;
         previewAudioRef.current.play()
           .then(() => {
