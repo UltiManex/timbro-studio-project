@@ -34,12 +34,12 @@ interface SoundEffectHitComponentProps {
   hit: Hit<AlgoliaSoundEffectHit>;
   selectedEffectInstance: SoundEffectInstance | null;
   setSelectedEffectInstance: React.Dispatch<React.SetStateAction<SoundEffectInstance | null>>;
+  onPreview: (previewUrl: string, effectName: string) => void;
 }
 
 
-function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance }: SoundEffectHitComponentProps) {
+function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance, onPreview }: SoundEffectHitComponentProps) {
   return (
-    // The <li> tag was removed from here, as <Hits> provides it.
     <Button
       variant="ghost"
       className="w-full justify-start text-left h-auto py-2"
@@ -50,7 +50,7 @@ function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInst
           setSelectedEffectInstance(updatedInstance);
           // User will click "Add Selected Effect" in inspector
         } else {
-          toast({ title: `Previewing: ${hit.name}` }); // Or actually play preview via a function
+          onPreview(hit.previewUrl, hit.name);
         }
       }}
     >
@@ -84,6 +84,7 @@ export default function ProjectEditPage() {
   const audioDuration = project?.duration || 60; 
 
   const waveformRef = useRef<HTMLDivElement>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const foundProject = mockProjects.find(p => p.id === projectId);
@@ -113,6 +114,24 @@ export default function ProjectEditPage() {
     }
     return () => clearInterval(interval);
   }, [isPlaying, audioDuration]);
+
+  const handlePreviewEffect = (previewUrl: string, effectName: string) => {
+    if (previewAudioRef.current) {
+      if (previewUrl && previewUrl !== '#') {
+        previewAudioRef.current.src = previewUrl;
+        previewAudioRef.current.play()
+          .then(() => {
+            toast({ title: `Playing: ${effectName}` });
+          })
+          .catch(error => {
+            console.error("Error playing preview:", error);
+            toast({ title: "Playback Error", description: "Could not play preview.", variant: "destructive" });
+          });
+      } else {
+        toast({ title: "No Preview Available", description: `Preview for ${effectName} is not set up.`, variant: "destructive" });
+      }
+    }
+  };
 
   const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!waveformRef.current) return;
@@ -228,6 +247,7 @@ export default function ProjectEditPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden">
+      <audio ref={previewAudioRef} className="hidden" />
       <div className="flex items-center justify-between p-4 border-b bg-card">
         <div>
           <h1 className="text-xl font-semibold font-headline">{project.name}</h1>
@@ -338,7 +358,7 @@ export default function ProjectEditPage() {
                     }}
                   />
                   {currentEffectDetails && !selectedEffectInstance.isUserAdded && (
-                    <Button variant="outline" size="sm" className="w-full" onClick={() => toast({title: `Previewing ${currentEffectDetails.name}`})}>
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => handlePreviewEffect(currentEffectDetails.previewUrl, currentEffectDetails.name)}>
                         <Play className="mr-2 h-4 w-4"/> Preview Effect
                     </Button>
                   )}
@@ -413,6 +433,7 @@ export default function ProjectEditPage() {
                           {...props} 
                           selectedEffectInstance={selectedEffectInstance} 
                           setSelectedEffectInstance={setSelectedEffectInstance}
+                          onPreview={handlePreviewEffect}
                         />
                       } 
                     />
@@ -426,3 +447,4 @@ export default function ProjectEditPage() {
     </div>
   );
 }
+
