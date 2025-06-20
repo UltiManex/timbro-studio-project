@@ -39,8 +39,7 @@ interface SoundEffectHitComponentProps {
 
 
 function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance, onPreview }: SoundEffectHitComponentProps) {
-  // Log the previewUrl from the Algolia hit
-  console.log(`SoundEffectHitItem for "${hit.name}": previewUrl from Algolia is "${hit.previewUrl}"`);
+  // console.log(`SoundEffectHitItem for "${hit.name}": previewUrl from Algolia is "${hit.previewUrl}"`);
   
   return (
     <Button
@@ -48,10 +47,8 @@ function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInst
       className="w-full justify-start text-left h-auto py-2"
       onClick={() => {
         if (selectedEffectInstance?.isUserAdded) {
-          // If in "Add New Effect" mode, select this sound for the new effect.
           const updatedInstance = { ...selectedEffectInstance, effectId: hit.id };
           setSelectedEffectInstance(updatedInstance);
-          // User will click "Add Selected Effect" in inspector
         } else {
           onPreview(hit.previewUrl, hit.name);
         }
@@ -120,16 +117,33 @@ export default function ProjectEditPage() {
 
   const handlePreviewEffect = (previewUrl: string, effectName: string) => {
     if (previewAudioRef.current) {
-      if (previewUrl && previewUrl !== '#' && previewUrl !== 'undefined') { // Check for undefined string as well
+      previewAudioRef.current.pause();
+      previewAudioRef.current.currentTime = 0;
+      // Reset src to ensure a clean state before loading a new source.
+      // This can help if the audio element is in an error state from a previous attempt.
+      previewAudioRef.current.src = ""; 
+      previewAudioRef.current.load(); // Important to call load() after changing src or to reset.
+
+      if (previewUrl && previewUrl.trim() !== '' && previewUrl !== '#' && previewUrl !== 'undefined') {
         previewAudioRef.current.src = previewUrl;
-        previewAudioRef.current.play()
-          .then(() => {
-            toast({ title: `Playing: ${effectName}` });
-          })
-          .catch(error => {
-            console.error("Error playing preview:", error);
-            toast({ title: "Playback Error", description: "Could not play preview.", variant: "destructive" });
-          });
+        previewAudioRef.current.load(); // Call load() again after setting the new src.
+        
+        const playPromise = previewAudioRef.current.play();
+
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              toast({ title: `Playing: ${effectName}` });
+            })
+            .catch(error => {
+              console.error(`Error playing preview for "${effectName}" (URL: ${previewUrl}):`, error);
+              toast({ title: "Playback Error", description: `Could not play ${effectName}. Check console.`, variant: "destructive" });
+            });
+        } else {
+           // This case is unlikely with modern browsers for .play()
+           console.warn(`Play promise for "${effectName}" (URL: ${previewUrl}) was undefined. Audio might not play.`);
+           toast({ title: "Playback Issue", description: `Could not initiate playback for ${effectName}.`, variant: "destructive" });
+        }
       } else {
         toast({ title: "No Preview Available", description: `Preview for ${effectName} is not set up.`, variant: "destructive" });
       }
@@ -281,7 +295,6 @@ export default function ProjectEditPage() {
             </CardHeader>
             <CardContent>
               <div ref={waveformRef} onClick={handleWaveformClick} className="h-32 bg-muted rounded-md relative cursor-crosshair flex items-center" aria-label="Audio waveform, click to add or select effect">
-                {/* This is a mock waveform visualization */}
                 {Array.from({ length: 50 }).map((_, i) => (
                   <div key={i} className="w-1 bg-primary/30 rounded-full" style={{ height: `${Math.random() * 80 + 10}%`, marginRight: '2px' }}></div>
                 ))}
@@ -361,7 +374,7 @@ export default function ProjectEditPage() {
                        setEffects(effects.map(ef => ef.id === updatedEffect.id ? updatedEffect : ef));
                     }}
                   />
-                  {currentEffectDetails && ( // Show preview only if we have details
+                  {currentEffectDetails && ( 
                     <Button variant="outline" size="sm" className="w-full" onClick={() => handlePreviewEffect(currentEffectDetails.previewUrl, currentEffectDetails.name)}>
                         <Play className="mr-2 h-4 w-4"/> Preview Effect
                     </Button>
