@@ -253,12 +253,26 @@ export default function ProjectEditPage() {
   };
   
   const handleSelectSoundForInstance = (effect: SoundEffect) => {
+    console.log("handleSelectSoundForInstance called. Effect object:", effect);
+    console.log("Current selected marker on timeline:", selectedEffectInstance);
+
     if (!selectedEffectInstance) {
         toast({ title: "No Marker Selected", description: "Click on the waveform to add a marker first.", variant: "destructive" });
         return;
     }
-    updateSelectedEffect({ effectId: effect.id });
-    toast({ title: "Effect updated", description: `Assigned '${effect.name}' to the marker.` });
+    
+    // The Algolia hit object might not have the 'id' field if it wasn't explicitly mapped.
+    // It will, however, have 'objectID'. Let's safely use that as a fallback.
+    const effectId = effect.id || (effect as any).objectID;
+
+    if (!effectId) {
+       console.error("The selected sound effect is missing an ID.", effect);
+       toast({ title: "Error", description: "The selected sound effect is invalid and is missing an ID.", variant: "destructive" });
+       return;
+    }
+
+    updateSelectedEffect({ effectId: effectId });
+    toast({ title: "Effect updated", description: `Assigned '${effect.name || "Effect"}' to the marker.` });
   };
   
   const handleSaveProject = () => {
