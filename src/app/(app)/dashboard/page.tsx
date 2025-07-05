@@ -86,17 +86,20 @@ export default function DashboardPage() {
           let aiSuggestions: SoundEffectInstance[] = [];
           let transcript = project.transcript || '';
           
+          if (!project.audioDataUri) {
+            throw new Error("Project is missing audio data for AI processing.");
+          }
+
+          const aiResponse = await suggestSoundEffects({
+            audioDataUri: project.audioDataUri,
+            selectedTone: project.selectedTone,
+            availableEffects: mockSoundEffectsLibrary.map(({ previewUrl, ...rest }) => rest),
+            audioDuration: project.duration || 60,
+          });
+
+          transcript = aiResponse.transcript;
+
           if (project.defaultEffectPlacement === 'ai-optimized') {
-            if (!project.audioDataUri) {
-              throw new Error("Project is missing audio data for AI processing.");
-            }
-            const aiResponse = await suggestSoundEffects({
-              audioDataUri: project.audioDataUri,
-              selectedTone: project.selectedTone,
-              availableEffects: mockSoundEffectsLibrary.map(({ previewUrl, ...rest }) => rest),
-              audioDuration: project.duration || 60,
-            });
-            transcript = aiResponse.transcript;
             aiSuggestions = (aiResponse.soundEffectSuggestions || []).map(suggestion => ({
               ...suggestion,
               id: `ai_inst_${Date.now()}_${Math.random()}`
@@ -106,7 +109,7 @@ export default function DashboardPage() {
           // Update the project in the main state and localStorage
           const updatedProjects = projects.map(p =>
             p.id === project.id
-              ? { ...p, status: 'Ready for Review', effects: aiSuggestions, transcript: transcript, audioDataUri: undefined } // Clear data URI after processing
+              ? { ...p, status: 'Ready for Review', effects: aiSuggestions, transcript: transcript } // Keep data URI for editor
               : p
           );
           updateProjects(updatedProjects);
@@ -116,7 +119,7 @@ export default function DashboardPage() {
           // Update the project to an 'Error' state
           const updatedProjects = projects.map(p =>
             p.id === project.id
-              ? { ...p, status: 'Error', audioDataUri: undefined } // Clear data URI on error too
+              ? { ...p, status: 'Error', audioDataUri: undefined } // Clear data URI on error
               : p
           );
           updateProjects(updatedProjects);

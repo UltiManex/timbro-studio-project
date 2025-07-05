@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -85,9 +83,10 @@ export default function ProjectEditPage() {
   const [filterTone, setFilterTone] = useState<Tone | 'All'>('All');
   const [isExporting, setIsExporting] = useState(false);
   
-  const audioDuration = project?.duration || 60; 
+  const audioDuration = project?.duration || 0; 
 
   const waveformRef = useRef<HTMLDivElement>(null);
+  const mainAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -100,6 +99,9 @@ export default function ProjectEditPage() {
       if (foundProject) {
         setProject(foundProject);
         setEffects(foundProject.effects?.map((ef: SoundEffectInstance) => ({ ...ef, isUserAdded: false })) || []);
+        if (mainAudioRef.current && foundProject.audioDataUri) {
+          mainAudioRef.current.src = foundProject.audioDataUri;
+        }
       } else {
         toast({ title: "Project not found", variant: "destructive" });
         router.push('/dashboard');
@@ -111,21 +113,24 @@ export default function ProjectEditPage() {
     }
   }, [projectId, router]);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentTime(prevTime => {
-          if (prevTime >= audioDuration) {
-            setIsPlaying(false);
-            return audioDuration;
-          }
-          return prevTime + 0.1;
-        });
-      }, 100);
+
+  const handlePlayPause = () => {
+    if (mainAudioRef.current) {
+      if (isPlaying) {
+        mainAudioRef.current.pause();
+      } else {
+        mainAudioRef.current.play().catch(e => console.error("Error playing main audio:", e));
+      }
     }
-    return () => clearInterval(interval);
-  }, [isPlaying, audioDuration]);
+  };
+
+  const handleSeek = (time: number) => {
+    if (mainAudioRef.current) {
+      mainAudioRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  };
+
 
   const handlePreviewEffect = (previewUrl: string, effectName: string) => {
     if (previewAudioRef.current) {
@@ -165,11 +170,12 @@ export default function ProjectEditPage() {
   };
 
   const handleWaveformClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!waveformRef.current) return;
+    if (!waveformRef.current || audioDuration === 0) return;
     const rect = waveformRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const percentage = clickX / rect.width;
     const clickedTime = audioDuration * percentage;
+    handleSeek(clickedTime);
     
     const markerHit = effects.find(ef => {
       const markerPos = (ef.timestamp / audioDuration) * rect.width;
@@ -190,7 +196,7 @@ export default function ProjectEditPage() {
   };
   
   const getHighlightedWordIndex = () => {
-    if (!project?.transcript) return -1;
+    if (!project?.transcript || audioDuration === 0) return -1;
     const words = project.transcript.split(' ');
     const wordsPerSecond = words.length / audioDuration;
     return Math.floor(currentTime * wordsPerSecond);
@@ -279,11 +285,25 @@ export default function ProjectEditPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden">
-      {/* 
-        The audio element is hidden. It's controlled programmatically.
-        We only need one instance of it.
-      */}
+      <audio 
+        ref={mainAudioRef}
+        src={project.audioDataUri}
+        onTimeUpdate={() => mainAudioRef.current && setCurrentTime(mainAudioRef.current.currentTime)}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
+        onLoadedMetadata={() => {
+           if (mainAudioRef.current) {
+             const newDuration = mainAudioRef.current.duration;
+             if (isFinite(newDuration)) {
+               setProject(p => p ? { ...p, duration: newDuration } : null);
+             }
+           }
+        }}
+        className="hidden"
+       />
       <audio ref={previewAudioRef} className="hidden" />
+
       <div className="flex items-center justify-between p-4 border-b bg-card">
         <div>
           <h1 className="text-xl font-semibold font-headline">{project.name}</h1>
@@ -304,10 +324,10 @@ export default function ProjectEditPage() {
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg flex items-center"><Waves className="mr-2 h-5 w-5 text-primary"/>Waveform</CardTitle>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" onClick={() => setCurrentTime(Math.max(0, currentTime - 5))}><Rewind className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => setIsPlaying(!isPlaying)}>{isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}</Button>
-                <Button variant="ghost" size="icon" onClick={() => setCurrentTime(Math.min(audioDuration, currentTime + 5))}><FastForward className="h-4 w-4" /></Button>
-                <div className="text-sm text-muted-foreground w-20 text-center">
+                <Button variant="ghost" size="icon" onClick={() => handleSeek(Math.max(0, currentTime - 5))}><Rewind className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={handlePlayPause}>{isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}</Button>
+                <Button variant="ghost" size="icon" onClick={() => handleSeek(Math.min(audioDuration, currentTime + 5))}><FastForward className="h-4 w-4" /></Button>
+                <div className="text-sm text-muted-foreground w-24 text-center">
                   {currentTime.toFixed(1)}s / {audioDuration.toFixed(1)}s
                 </div>
               </div>
@@ -319,7 +339,9 @@ export default function ProjectEditPage() {
                   <div key={i} className="w-1 bg-primary/30 rounded-full" style={{ height: `${Math.random() * 80 + 10}%`, marginRight: '2px' }}></div>
                 ))}
                 {/* Playhead */}
-                <div className="absolute top-0 bottom-0 bg-primary w-0.5" style={{ left: `${(currentTime / audioDuration) * 100}%` }}></div>
+                {audioDuration > 0 && (
+                  <div className="absolute top-0 bottom-0 bg-primary w-0.5" style={{ left: `${(currentTime / audioDuration) * 100}%` }}></div>
+                )}
                 {/* Effect Markers */}
                 {effects.map(ef => {
                   const effectDetailsMarker = mockSoundEffectsLibrary.find(libSfx => libSfx.id === ef.effectId);
@@ -329,7 +351,7 @@ export default function ProjectEditPage() {
                       key={ef.id} 
                       className={`absolute -top-1 transform -translate-x-1/2 p-1 rounded-full cursor-pointer transition-all
                         ${selectedEffectInstance?.id === ef.id ? 'bg-primary scale-125 z-10' : 'bg-accent hover:bg-primary/80'}`}
-                      style={{ left: `${(ef.timestamp / audioDuration) * 100}%` }}
+                      style={{ left: audioDuration > 0 ? `${(ef.timestamp / audioDuration) * 100}%` : '0%' }}
                       onClick={(e) => { e.stopPropagation(); setSelectedEffectInstance(ef); }}
                       title={effectDetailsMarker?.name || (ef.isUserAdded ? 'New Effect' : 'Unknown Effect')}
                     >
@@ -342,7 +364,7 @@ export default function ProjectEditPage() {
                 value={[currentTime]}
                 max={audioDuration}
                 step={0.1}
-                onValueChange={(value) => setCurrentTime(value[0])}
+                onValueChange={(value) => handleSeek(value[0])}
                 className="mt-2"
                 aria-label="Audio playback position"
               />
