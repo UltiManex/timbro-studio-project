@@ -61,7 +61,9 @@ function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInst
             {hit.tone.map(t => <ToneIcon key={t} tone={t as Tone} className="h-3 w-3" />)}
           </div>
         </div>
-        <Volume2 className="h-4 w-4 text-muted-foreground hover:text-primary" />
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onPreview(hit.previewUrl, hit.name); }}>
+          <Volume2 className="h-4 w-4 text-muted-foreground hover:text-primary" />
+        </Button>
       </div>
     </Button>
   );
@@ -95,7 +97,6 @@ export default function ProjectEditPage() {
 
       if (foundProject) {
         setProject(foundProject);
-        // Load effects from the project data
         setEffects(foundProject.effects?.map((ef: SoundEffectInstance) => ({ ...ef, isUserAdded: false })) || []);
       } else {
         toast({ title: "Project not found", variant: "destructive" });
@@ -125,41 +126,42 @@ export default function ProjectEditPage() {
   }, [isPlaying, audioDuration]);
 
   const handlePreviewEffect = (previewUrl: string, effectName: string) => {
+    // 1. Stop any currently playing audio first.
     if (previewAudioRef.current) {
-      previewAudioRef.current.pause();
-      previewAudioRef.current.currentTime = 0;
-      previewAudioRef.current.src = ""; // Clear previous source
+        previewAudioRef.current.pause();
+        previewAudioRef.current.currentTime = 0;
+    }
 
-      if (previewUrl && previewUrl.trim() !== '' && !previewUrl.startsWith('#') && previewUrl !== 'undefined') {
+    // 2. Validate the new URL.
+    if (!previewUrl || previewUrl.trim() === '' || previewUrl.startsWith('#') || previewUrl === 'undefined') {
+        toast({
+            title: "No Preview Available",
+            description: `Preview for ${effectName} is not set up or URL is invalid.`,
+            variant: "destructive",
+        });
+        return; // Exit early
+    }
+
+    // 3. If the URL is valid, try to play it.
+    if (previewAudioRef.current) {
         previewAudioRef.current.src = previewUrl;
-        
-        // It's good practice to call load() after setting a new src,
-        // though many browsers do it automatically.
-        previewAudioRef.current.load(); 
-        
+        previewAudioRef.current.load();
         const playPromise = previewAudioRef.current.play();
 
         if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              toast({ title: `Playing: ${effectName}` });
-            })
-            .catch(error => {
-              console.error(`Error playing preview for "${effectName}" (URL: ${previewUrl}):`, error);
-              if (previewAudioRef.current && previewAudioRef.current.error) {
-                console.error('Audio Element Error Code:', previewAudioRef.current.error.code);
-                console.error('Audio Element Error Message:', previewAudioRef.current.error.message);
-              }
-              toast({ title: "Playback Error", description: `Could not play ${effectName}. Check console.`, variant: "destructive" });
+            playPromise.catch(error => {
+                console.error(`Error playing preview for "${effectName}" (URL: ${previewUrl}):`, error);
+                if (previewAudioRef.current?.error) {
+                    console.error('Audio Element Error Code:', previewAudioRef.current.error.code);
+                    console.error('Audio Element Error Message:', previewAudioRef.current.error.message);
+                }
+                toast({
+                    title: "Playback Error",
+                    description: `Could not play ${effectName}. Check console.`,
+                    variant: "destructive",
+                });
             });
-        } else {
-           // This case should be rare for modern browsers if play() is called correctly.
-           console.warn(`Play promise for "${effectName}" (URL: ${previewUrl}) was undefined. Audio might not play.`);
-           toast({ title: "Playback Issue", description: `Could not initiate playback for ${effectName}.`, variant: "destructive" });
         }
-      } else {
-        toast({ title: "No Preview Available", description: `Preview for ${effectName} is not set up or URL is invalid.`, variant: "destructive" });
-      }
     }
   };
 
@@ -489,3 +491,5 @@ export default function ProjectEditPage() {
     </div>
   );
 }
+
+    
