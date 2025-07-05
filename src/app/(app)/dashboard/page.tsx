@@ -23,9 +23,10 @@ import { mockProjects, mockSoundEffectsLibrary } from '@/lib/mock-data';
 import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
 import type { SoundEffectInstance } from '@/lib/types';
 
+const LOCAL_STORAGE_KEY = 'timbro-projects';
 
 export default function DashboardPage() {
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -33,11 +34,39 @@ export default function DashboardPage() {
 
   const searchParams = useSearchParams();
 
+  // Load projects from localStorage on initial render
+  useEffect(() => {
+    try {
+      const storedProjects = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedProjects) {
+        setProjects(JSON.parse(storedProjects));
+      } else {
+        // First time load, seed with mock data from the file
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockProjects));
+        setProjects(mockProjects);
+      }
+    } catch (error) {
+      console.error("Failed to access localStorage:", error);
+      // Fallback to mock projects if localStorage is unavailable
+      setProjects(mockProjects);
+    }
+  }, []);
+
   useEffect(() => {
     if (searchParams.get('onboarding') === 'true') {
       setIsOnboardingModalOpen(true);
     }
   }, [searchParams]);
+
+  // Helper function to update projects in both state and localStorage
+  const updateProjects = (updatedProjects: Project[]) => {
+    setProjects(updatedProjects);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
+    } catch (error) {
+      console.error("Failed to update projects in localStorage:", error);
+    }
+  };
 
   // This effect simulates a background worker queue for AI processing.
   useEffect(() => {
@@ -66,28 +95,31 @@ export default function DashboardPage() {
             }));
           }
 
-          // Update the project in the main state
-          setProjects(prevProjects => prevProjects.map(p =>
+          // Update the project in the main state and localStorage
+          const updatedProjects = projects.map(p =>
             p.id === project.id
               ? { ...p, status: 'Ready for Review', effects: aiSuggestions }
               : p
-          ));
+          );
+          updateProjects(updatedProjects);
 
         } catch (e) {
           console.error(`AI processing failed for project ${project.id}:`, e);
           // Update the project to an 'Error' state
-          setProjects(prevProjects => prevProjects.map(p =>
+          const updatedProjects = projects.map(p =>
             p.id === project.id
               ? { ...p, status: 'Error' }
               : p
-          ));
+          );
+          updateProjects(updatedProjects);
         }
       });
     }
   }, [projects, processingProjects]);
 
   const handleDeleteProject = (projectId: string) => {
-    setProjects(prevProjects => prevProjects.filter(p => p.id !== projectId));
+    const updatedProjectsList = projects.filter(p => p.id !== projectId);
+    updateProjects(updatedProjectsList);
     // Add toast notification here
   };
 

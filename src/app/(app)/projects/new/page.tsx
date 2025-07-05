@@ -5,17 +5,31 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { UploadAudioModal } from '@/components/modals/upload-audio-modal';
 import type { Project } from '@/lib/types';
-import { mockProjects } from '@/lib/mock-data';
+
+const LOCAL_STORAGE_KEY = 'timbro-projects';
 
 export default function NewProjectPage() {
   const [isModalOpen, setIsModalOpen] = useState(true); // Open modal by default
   const router = useRouter();
-  const [projectCreated, setProjectCreated] = useState(false);
 
   const handleProjectCreated = (project: Project) => {
-    // In a real app, this would be a database write. Here, we'll add it to our mock array.
-    mockProjects.unshift(project); // Add to the beginning of the array
-    setProjectCreated(true);
+    try {
+      // Get existing projects from storage
+      const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const storedProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
+      
+      // Add new project to the start of the list
+      const updatedProjects = [project, ...storedProjects];
+
+      // Save back to storage
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
+    } catch (error) {
+      console.error("Failed to save project to localStorage", error);
+      // Handle the error, maybe show a toast to the user
+    }
+    
+    // Trigger navigation by closing the modal
+    setIsModalOpen(false);
   };
 
   useEffect(() => {
