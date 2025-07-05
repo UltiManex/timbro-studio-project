@@ -38,25 +38,19 @@ interface AlgoliaSoundEffectHit extends SoundEffect {
 
 interface SoundEffectHitComponentProps {
   hit: Hit<AlgoliaSoundEffectHit>;
-  selectedEffectInstance: SoundEffectInstance | null;
-  setSelectedEffectInstance: React.Dispatch<React.SetStateAction<SoundEffectInstance | null>>;
+  onSelect: (effectId: string) => void;
   onPreview: (previewUrl: string, effectName: string) => void;
 }
 
 
-function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance, onPreview }: SoundEffectHitComponentProps) {
+function SoundEffectHitItem({ hit, onSelect, onPreview }: SoundEffectHitComponentProps) {
   return (
     <div
       className={cn(
         buttonVariants({ variant: 'ghost' }),
         "w-full justify-start text-left h-auto py-2 cursor-pointer"
       )}
-      onClick={() => {
-        if (selectedEffectInstance) {
-          const updatedInstance = { ...selectedEffectInstance, effectId: hit.id };
-          setSelectedEffectInstance(updatedInstance);
-        }
-      }}
+      onClick={() => onSelect(hit.id)}
     >
       <div className="flex items-center justify-between w-full">
         <div className="flex-col">
@@ -80,7 +74,6 @@ export default function ProjectEditPage() {
   const projectId = params.projectId as string;
 
   const [project, setProject] = useState<Project | null>(null);
-  const [effects, setEffects] = useState<SoundEffectInstance[]>([]);
   const [selectedEffectInstance, setSelectedEffectInstance] = useState<SoundEffectInstance | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -88,6 +81,7 @@ export default function ProjectEditPage() {
   const [isExporting, setIsExporting] = useState(false);
   
   const audioDuration = project?.duration || 0; 
+  const effects = project?.effects || [];
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const mainAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -102,7 +96,6 @@ export default function ProjectEditPage() {
 
       if (foundProject) {
         setProject(foundProject);
-        setEffects(foundProject.effects?.map((ef: SoundEffectInstance) => ({ ...ef, isUserAdded: false })) || []);
         if (mainAudioRef.current && foundProject.audioDataUri) {
           mainAudioRef.current.src = foundProject.audioDataUri;
         }
@@ -117,6 +110,28 @@ export default function ProjectEditPage() {
     }
   }, [projectId, router]);
 
+
+  // Centralized function to update project state and save to localStorage
+  const updateProject = (updatedProjectData: Partial<Project>) => {
+    if (!project) return;
+    
+    const updatedProject = { ...project, ...updatedProjectData };
+    setProject(updatedProject);
+
+    try {
+      const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
+      const projectIndex = allProjects.findIndex((p: Project) => p.id === projectId);
+
+      if (projectIndex !== -1) {
+        allProjects[projectIndex] = updatedProject;
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allProjects));
+      }
+    } catch (error) {
+      console.error("Failed to save project to localStorage:", error);
+      toast({ title: "Error Saving Project", variant: "destructive" });
+    }
+  };
 
   const handlePlayPause = () => {
     if (mainAudioRef.current) {
@@ -134,7 +149,6 @@ export default function ProjectEditPage() {
       setCurrentTime(time);
     }
   };
-
 
   const handlePreviewEffect = (previewUrl: string, effectName: string) => {
     if (previewAudioRef.current) {
@@ -189,13 +203,16 @@ export default function ProjectEditPage() {
     if (markerHit) {
       setSelectedEffectInstance(markerHit);
     } else {
-      setSelectedEffectInstance({
+      const newEffect = {
         id: `new_${Date.now()}`,
-        effectId: '', 
+        effectId: '', // Awaiting selection
         timestamp: clickedTime,
         isUserAdded: true,
         volume: 1.0, 
-      });
+      };
+      updateProject({ effects: [...effects, newEffect] });
+      setSelectedEffectInstance(newEffect);
+      toast({ title: "New effect marker added", description: "Select a sound from the library to assign it." });
     }
   };
   
@@ -210,59 +227,54 @@ export default function ProjectEditPage() {
     return estimatedIndex;
   };
 
+  const updateSelectedEffect = (propsToUpdate: Partial<SoundEffectInstance>) => {
+    if (!selectedEffectInstance) return;
+
+    const updatedEffect = { ...selectedEffectInstance, ...propsToUpdate };
+    setSelectedEffectInstance(updatedEffect);
+
+    const newEffects = effects.map(ef => ef.id === updatedEffect.id ? updatedEffect : ef);
+    updateProject({ effects: newEffects });
+  };
+
   const handleNudge = (direction: 'left' | 'right') => {
     if (!selectedEffectInstance) return;
     const newTimestamp = selectedEffectInstance.timestamp + (direction === 'left' ? -EDITOR_NUDGE_INCREMENT_MS / 1000 : EDITOR_NUDGE_INCREMENT_MS / 1000);
-    const updatedTimestamp = Math.max(0, Math.min(audioDuration, newTimestamp));
-    
-    const updatedEffect = { ...selectedEffectInstance, timestamp: updatedTimestamp };
-    setSelectedEffectInstance(updatedEffect);
-    setEffects(effects.map(ef => ef.id === updatedEffect.id ? updatedEffect : ef));
+    updateSelectedEffect({ timestamp: Math.max(0, Math.min(audioDuration, newTimestamp)) });
+  };
+  
+  const handleVolumeChange = (volume: number) => {
+    updateSelectedEffect({ volume });
   };
 
   const handleDeleteEffect = () => {
     if (!selectedEffectInstance) return;
-    setEffects(effects.filter(ef => ef.id !== selectedEffectInstance.id));
+    const newEffects = effects.filter(ef => ef.id !== selectedEffectInstance.id);
+    updateProject({ effects: newEffects });
     setSelectedEffectInstance(null);
     toast({ title: "Effect removed" });
   };
   
-  const handleAddOrUpdateEffect = (effectIdToUse?: string) => {
-    if (!selectedEffectInstance) return;
-    
-    let finalEffectId = selectedEffectInstance.effectId;
-    if (selectedEffectInstance.isUserAdded && effectIdToUse) { 
-      finalEffectId = effectIdToUse;
-    } else if (!selectedEffectInstance.isUserAdded && effectIdToUse) { 
-      finalEffectId = effectIdToUse;
-    }
-    
-    if (!finalEffectId && selectedEffectInstance.isUserAdded) { 
-        toast({title: "No Sound Effect Selected", description: "Please choose a sound effect from the library.", variant: "destructive"});
+  const handleSelectSoundForInstance = (effectId: string) => {
+    if (!selectedEffectInstance) {
+        toast({ title: "No Marker Selected", description: "Click on the waveform to add a marker first.", variant: "destructive" });
         return;
     }
-    
-    const newEffect = { ...selectedEffectInstance, effectId: finalEffectId };
-    
-    if (effects.find(ef => ef.id === newEffect.id)) {
-      setEffects(effects.map(ef => ef.id === newEffect.id ? newEffect : ef));
-    } else {
-      setEffects([...effects, newEffect]);
-    }
-    toast({ title: selectedEffectInstance.isUserAdded && !effects.find(ef => ef.id === newEffect.id) ? "Effect Added" : "Effect Updated" });
-    
-    if (selectedEffectInstance.isUserAdded && !effects.find(ef => ef.id === newEffect.id)) { 
-      setSelectedEffectInstance(null); 
-    } else { 
-      setSelectedEffectInstance(newEffect); 
-    }
+    updateSelectedEffect({ effectId });
+    toast({ title: "Effect updated", description: `Assigned '${mockSoundEffectsLibrary.find(sfx => sfx.id === effectId)?.name}' to the marker.` });
   };
   
+  const handleSaveProject = () => {
+    if (!project) return;
+    updateProject(project); // This just forces a save, though it happens automatically.
+    toast({ title: "Project Saved!", description: "Your changes have been saved successfully." });
+  };
+
   const handleExport = async () => {
     setIsExporting(true);
     toast({ title: "Export Started", description: "Your audio is being mixed. You'll be notified upon completion." });
     await new Promise(resolve => setTimeout(resolve, 5000)); 
-    setProject(prev => prev ? ({...prev, status: 'Completed', finalAudioUrl: '#mock-download-link' }) : null); 
+    updateProject({ status: 'Completed', finalAudioUrl: '#mock-download-link' });
     setIsExporting(false);
     toast({ title: "Export Complete!", description: "Your audio is ready for download from the dashboard." });
     router.push('/dashboard');
@@ -303,8 +315,8 @@ export default function ProjectEditPage() {
         onLoadedMetadata={() => {
            if (mainAudioRef.current) {
              const newDuration = mainAudioRef.current.duration;
-             if (isFinite(newDuration)) {
-               setProject(p => p ? { ...p, duration: newDuration } : null);
+             if (isFinite(newDuration) && project.duration !== newDuration) {
+               updateProject({ duration: newDuration });
              }
            }
         }}
@@ -318,7 +330,7 @@ export default function ProjectEditPage() {
           <p className="text-sm text-muted-foreground">Editing project...</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm"><Save className="mr-2 h-4 w-4" />Save Draft</Button>
+          <Button variant="outline" size="sm" onClick={handleSaveProject}><Save className="mr-2 h-4 w-4" />Save Project</Button>
           <Button size="sm" onClick={handleExport} disabled={isExporting}>
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export Audio
@@ -422,15 +434,9 @@ export default function ProjectEditPage() {
                     defaultValue={[selectedEffectInstance.volume !== undefined ? selectedEffectInstance.volume * 100 : 100]} 
                     max={100} step={1} 
                     className="my-1"
-                    onValueChange={(val) => {
-                       // Debounce or update on drag end for performance if needed
-                       const updatedEffect = { ...selectedEffectInstance, volume: val[0] / 100 };
-                       setSelectedEffectInstance(updatedEffect);
-                       // Update the main effects array
-                       setEffects(effects.map(ef => ef.id === updatedEffect.id ? updatedEffect : ef));
-                    }}
+                    onValueChange={(val) => handleVolumeChange(val[0] / 100) }
                   />
-                  {currentEffectDetails && ( // Only show if it's an existing effect from library
+                  {currentEffectDetails && (
                     <Button variant="outline" size="sm" className="w-full" onClick={() => handlePreviewEffect(currentEffectDetails.previewUrl, currentEffectDetails.name)}>
                         <Play className="mr-2 h-4 w-4"/> Preview Effect
                     </Button>
@@ -438,17 +444,13 @@ export default function ProjectEditPage() {
                   <Button variant="destructive" size="sm" onClick={handleDeleteEffect} className="w-full">
                     <Trash2 className="mr-2 h-4 w-4"/>Delete Effect
                   </Button>
-                  {selectedEffectInstance.isUserAdded && 
-                    <Button size="sm" onClick={() => handleAddOrUpdateEffect()} className="w-full" disabled={!selectedEffectInstance.effectId}>
-                      Add Selected Effect
-                    </Button>
-                  }
-                  {/* Swap functionality example, could be more sophisticated */}
-                  {!selectedEffectInstance.isUserAdded && currentEffectDetails && (
+                  
+                  {/* Swap functionality */}
+                  {currentEffectDetails && (
                      <div className="pt-2 border-t">
-                        <p className="text-sm font-medium mb-1">Swap Effect:</p>
+                        <p className="text-sm font-medium mb-1">Quick Swap:</p>
                         {mockSoundEffectsLibrary.filter(sfx => sfx.id !== currentEffectDetails.id && sfx.tone.some(t => currentEffectDetails.tone.includes(t))).slice(0,2).map(swapSfx => (
-                           <Button key={swapSfx.id} variant="outline" size="sm" className="w-full mb-1 text-xs" onClick={() => handleAddOrUpdateEffect(swapSfx.id)}>
+                           <Button key={swapSfx.id} variant="outline" size="sm" className="w-full mb-1 text-xs" onClick={() => handleSelectSoundForInstance(swapSfx.id)}>
                              Swap to: {swapSfx.name}
                            </Button>
                         ))}
@@ -470,7 +472,8 @@ export default function ProjectEditPage() {
             <Card className="flex-1 overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-lg">Sound Library</CardTitle>
-                <div className="flex gap-2 mt-2">
+                <CardDescription>Select a marker, then choose a sound.</CardDescription>
+                <div className="flex gap-2 pt-2">
                   <div className="relative flex-grow">
                     <SearchBox
                       placeholder="Search effects..."
@@ -505,9 +508,8 @@ export default function ProjectEditPage() {
                     <Hits<AlgoliaSoundEffectHit> 
                       hitComponent={(props) => 
                         <SoundEffectHitItem 
-                          {...props} 
-                          selectedEffectInstance={selectedEffectInstance} 
-                          setSelectedEffectInstance={setSelectedEffectInstance}
+                          hit={props.hit}
+                          onSelect={handleSelectSoundForInstance}
                           onPreview={handlePreviewEffect}
                         />
                       } 
