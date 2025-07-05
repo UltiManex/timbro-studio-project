@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useCallback, ChangeEvent } from 'react';
@@ -13,12 +14,11 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { AVAILABLE_TONES, MAX_AUDIO_FILE_SIZE_BYTES, MAX_AUDIO_FILE_SIZE_MB, ALLOWED_AUDIO_TYPES, AVAILABLE_EFFECT_PLACEMENTS } from '@/lib/constants';
-import type { Tone, DefaultEffectPlacement, SoundEffectInstance } from '@/lib/types';
+import type { Tone, DefaultEffectPlacement } from '@/lib/types';
 import { UploadCloud, FileAudio, X, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TrustBadgeIcon, ToneIcon } from '@/components/icons';
-import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
-import { mockSoundEffectsLibrary, mockTranscript } from '@/lib/mock-data';
+import { mockTranscript } from '@/lib/mock-data';
 
 const projectSchema = z.object({
   projectName: z.string().min(3, { message: 'Project name must be at least 3 characters.' }),
@@ -35,13 +35,12 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 interface UploadAudioModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onProjectCreated: (project: any) => void; // Adjust 'any' to your Project type
+  onProjectCreated: (project: any) => void;
 }
 
 export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: UploadAudioModalProps) {
   const router = useRouter();
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isCreating, setIsCreating] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
   const form = useForm<ProjectFormValues>({
@@ -85,70 +84,40 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     setDragActive(false);
   }, []);
   
-  const onSubmit = async (data: ProjectFormValues) => {
-    setIsUploading(true);
+  const onSubmit = (data: ProjectFormValues) => {
+    setIsCreating(true);
 
-    let aiSuggestions: SoundEffectInstance[] = [];
-    
-    // Only run AI if the user wants it
-    if (data.defaultEffectPlacement === 'ai-optimized') {
-      try {
-        // In a real app, you would get duration and transcript from the uploaded audio file.
-        // We use mock data here for simplicity.
-        const audioDuration = 60; // Mock duration
-        const transcript = mockTranscript; 
-        
-        const aiResponse = await suggestSoundEffects({
-          audioTranscription: transcript,
-          selectedTone: data.selectedTone,
-          availableEffects: mockSoundEffectsLibrary.map(({ previewUrl, ...rest }) => rest), // Exclude previewUrl for the prompt
-          audioDuration: audioDuration,
-        });
-
-        // Add a unique instance ID to each suggestion
-        aiSuggestions = aiResponse.soundEffectSuggestions.map(suggestion => ({
-          ...suggestion,
-          id: `ai_inst_${Date.now()}_${Math.random()}`
-        }));
-
-      } catch (e) {
-        console.error("AI suggestion failed:", e);
-        toast({
-          title: "AI Analysis Failed",
-          description: "Could not generate sound effect suggestions. You can still create the project and add effects manually.",
-          variant: "destructive"
-        });
-      }
-    }
-    
-    // This part runs regardless of AI success or failure
+    // Create the project object with a 'Processing' status.
+    // The actual AI analysis will be handled by the dashboard page.
     const newProject = {
       id: `proj_${Date.now()}`,
       name: data.projectName,
       date: new Date().toISOString(),
-      status: 'Ready for Review' as const, // It's ready for review even if AI fails (with 0 suggestions)
+      status: 'Processing' as const,
       audioFileName: data.audioFile[0].name,
       audioFileSize: data.audioFile[0].size,
       selectedTone: data.selectedTone,
       defaultEffectPlacement: data.defaultEffectPlacement,
-      effects: aiSuggestions,
-      duration: 60, // Mock duration
-      transcript: mockTranscript,
+      effects: [], // Start with empty effects
+      duration: 60, // Mock duration for now
+      transcript: mockTranscript, // Mock transcript for now
     };
 
-    onProjectCreated(newProject); 
-    setIsUploading(false);
-    onOpenChange(false); 
-    form.reset();
+    onProjectCreated(newProject);
+    
     toast({
       title: "Project Created!",
-      description: `${data.projectName} is now ready for review.`,
+      description: `'${data.projectName}' is now being processed.`,
     });
-    router.push('/dashboard'); 
+
+    setIsCreating(false);
+    onOpenChange(false);
+    form.reset();
+    router.push('/dashboard');
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!isUploading) { onOpenChange(open); if (!open) form.reset(); } }}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!isCreating) { onOpenChange(open); if (!open) form.reset(); } }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-2xl font-headline">Create New Project</DialogTitle>
@@ -269,22 +238,15 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
             <span>Your files are private and secure. We respect your content and privacy.</span>
           </div>
 
-          {isUploading && (
-            <div className="space-y-1">
-              <Progress value={uploadProgress} className="w-full" />
-              <p className="text-sm text-muted-foreground text-center">Contacting AI assistant...</p>
-            </div>
-          )}
-
           <DialogFooter className="pt-4">
             <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isUploading}>
+              <Button type="button" variant="outline" disabled={isCreating}>
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={isUploading || !form.formState.isValid}>
-              {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Analyze Audio
+            <Button type="submit" disabled={isCreating || !form.formState.isValid}>
+              {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {isCreating ? 'Creating Project...' : 'Analyze Audio'}
             </Button>
           </DialogFooter>
         </form>

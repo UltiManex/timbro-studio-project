@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { mockProjects } from '@/lib/mock-data';
+import { mockProjects, mockSoundEffectsLibrary } from '@/lib/mock-data';
+import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
+import type { SoundEffectInstance } from '@/lib/types';
 
 
 export default function DashboardPage() {
@@ -27,6 +29,7 @@ export default function DashboardPage() {
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [processingProjects, setProcessingProjects] = useState<Set<string>>(new Set());
 
   const searchParams = useSearchParams();
 
@@ -36,9 +39,6 @@ export default function DashboardPage() {
     }
   }, [searchParams]);
 
-  // This effect will now add new projects created from the modal to our dashboard state.
-  // In a real app, this would be managed by a global state manager (like Zustand or Redux)
-  // or by re-fetching projects from the database. For now, we use a simple event listener.
   useEffect(() => {
     const handleProjectCreated = (event: Event) => {
       const customEvent = event as CustomEvent;
@@ -47,24 +47,57 @@ export default function DashboardPage() {
 
     window.addEventListener('projectCreated', handleProjectCreated);
 
-    // Simulate real-time status updates for "Processing" projects
-    const interval = setInterval(() => {
-      setProjects(prevProjects =>
-        prevProjects.map(p => {
-          if (p.status === 'Processing' && Math.random() < 0.1) { // 10% chance to complete
-            return { ...p, status: 'Ready for Review' };
-          }
-          return p;
-        })
-      );
-    }, 5000); // Check every 5 seconds
-
-
     return () => {
       window.removeEventListener('projectCreated', handleProjectCreated);
-      clearInterval(interval);
     };
   }, []);
+  
+  // This effect simulates a background worker queue for AI processing.
+  useEffect(() => {
+    const projectsToProcess = projects.filter(
+      p => p.status === 'Processing' && !processingProjects.has(p.id)
+    );
+
+    if (projectsToProcess.length > 0) {
+      projectsToProcess.forEach(async (project) => {
+        // Flag this project as being processed to avoid duplicate runs
+        setProcessingProjects(prev => new Set(prev).add(project.id));
+
+        try {
+          let aiSuggestions: SoundEffectInstance[] = [];
+          
+          if (project.defaultEffectPlacement === 'ai-optimized') {
+            const aiResponse = await suggestSoundEffects({
+              audioTranscription: project.transcript || '',
+              selectedTone: project.selectedTone,
+              availableEffects: mockSoundEffectsLibrary.map(({ previewUrl, ...rest }) => rest),
+              audioDuration: project.duration || 60,
+            });
+            aiSuggestions = aiResponse.soundEffectSuggestions.map(suggestion => ({
+              ...suggestion,
+              id: `ai_inst_${Date.now()}_${Math.random()}`
+            }));
+          }
+
+          // Update the project in the main state
+          setProjects(prevProjects => prevProjects.map(p =>
+            p.id === project.id
+              ? { ...p, status: 'Ready for Review', effects: aiSuggestions }
+              : p
+          ));
+
+        } catch (e) {
+          console.error(`AI processing failed for project ${project.id}:`, e);
+          // Update the project to an 'Error' state
+          setProjects(prevProjects => prevProjects.map(p =>
+            p.id === project.id
+              ? { ...p, status: 'Error' }
+              : p
+          ));
+        }
+      });
+    }
+  }, [projects, processingProjects]);
 
   const handleDeleteProject = (projectId: string) => {
     setProjects(prevProjects => prevProjects.filter(p => p.id !== projectId));
