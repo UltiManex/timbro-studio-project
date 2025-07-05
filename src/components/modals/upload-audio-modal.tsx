@@ -13,11 +13,12 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { AVAILABLE_TONES, MAX_AUDIO_FILE_SIZE_BYTES, MAX_AUDIO_FILE_SIZE_MB, ALLOWED_AUDIO_TYPES, AVAILABLE_EFFECT_PLACEMENTS } from '@/lib/constants';
-import type { Tone, DefaultEffectPlacement } from '@/lib/types';
+import type { Tone, DefaultEffectPlacement, SoundEffectInstance } from '@/lib/types';
 import { UploadCloud, FileAudio, X, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TrustBadgeIcon, ToneIcon } from '@/components/icons';
-// import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects'; // This would be used in a real backend call
+import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
+import { mockSoundEffectsLibrary, mockTranscript } from '@/lib/mock-data';
 
 const projectSchema = z.object({
   projectName: z.string().min(3, { message: 'Project name must be at least 3 characters.' }),
@@ -86,24 +87,53 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
   
   const onSubmit = async (data: ProjectFormValues) => {
     setIsUploading(true);
-    setUploadProgress(0);
 
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setUploadProgress(i);
+    let aiSuggestions: SoundEffectInstance[] = [];
+    
+    // Only run AI if the user wants it
+    if (data.defaultEffectPlacement === 'ai-optimized') {
+      try {
+        // In a real app, you would get duration and transcript from the uploaded audio file.
+        // We use mock data here for simplicity.
+        const audioDuration = 60; // Mock duration
+        const transcript = mockTranscript; 
+        
+        const aiResponse = await suggestSoundEffects({
+          audioTranscription: transcript,
+          selectedTone: data.selectedTone,
+          availableEffects: mockSoundEffectsLibrary.map(({ previewUrl, ...rest }) => rest), // Exclude previewUrl for the prompt
+          audioDuration: audioDuration,
+        });
+
+        // Add a unique instance ID to each suggestion
+        aiSuggestions = aiResponse.soundEffectSuggestions.map(suggestion => ({
+          ...suggestion,
+          id: `ai_inst_${Date.now()}_${Math.random()}`
+        }));
+
+      } catch (e) {
+        console.error("AI suggestion failed:", e);
+        toast({
+          title: "AI Analysis Failed",
+          description: "Could not generate sound effect suggestions. You can still create the project and add effects manually.",
+          variant: "destructive"
+        });
+      }
     }
     
-    await new Promise(resolve => setTimeout(resolve, 2000)); 
-
+    // This part runs regardless of AI success or failure
     const newProject = {
       id: `proj_${Date.now()}`,
       name: data.projectName,
       date: new Date().toISOString(),
-      status: 'Processing' as const, 
+      status: 'Ready for Review' as const, // It's ready for review even if AI fails (with 0 suggestions)
       audioFileName: data.audioFile[0].name,
       audioFileSize: data.audioFile[0].size,
       selectedTone: data.selectedTone,
       defaultEffectPlacement: data.defaultEffectPlacement,
+      effects: aiSuggestions,
+      duration: 60, // Mock duration
+      transcript: mockTranscript,
     };
 
     onProjectCreated(newProject); 
@@ -112,7 +142,7 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     form.reset();
     toast({
       title: "Project Created!",
-      description: `${data.projectName} is now processing.`,
+      description: `${data.projectName} is now ready for review.`,
     });
     router.push('/dashboard'); 
   };
@@ -242,7 +272,7 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
           {isUploading && (
             <div className="space-y-1">
               <Progress value={uploadProgress} className="w-full" />
-              <p className="text-sm text-muted-foreground text-center">Uploading and processing...</p>
+              <p className="text-sm text-muted-foreground text-center">Contacting AI assistant...</p>
             </div>
           )}
 

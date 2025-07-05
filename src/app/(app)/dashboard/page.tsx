@@ -36,8 +36,18 @@ export default function DashboardPage() {
     }
   }, [searchParams]);
 
-  // Simulate real-time status updates for "Processing" projects
+  // This effect will now add new projects created from the modal to our dashboard state.
+  // In a real app, this would be managed by a global state manager (like Zustand or Redux)
+  // or by re-fetching projects from the database. For now, we use a simple event listener.
   useEffect(() => {
+    const handleProjectCreated = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      setProjects(prevProjects => [customEvent.detail, ...prevProjects]);
+    };
+
+    window.addEventListener('projectCreated', handleProjectCreated);
+
+    // Simulate real-time status updates for "Processing" projects
     const interval = setInterval(() => {
       setProjects(prevProjects =>
         prevProjects.map(p => {
@@ -49,7 +59,11 @@ export default function DashboardPage() {
       );
     }, 5000); // Check every 5 seconds
 
-    return () => clearInterval(interval);
+
+    return () => {
+      window.removeEventListener('projectCreated', handleProjectCreated);
+      clearInterval(interval);
+    };
   }, []);
 
   const handleDeleteProject = (projectId: string) => {

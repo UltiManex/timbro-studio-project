@@ -3,17 +3,22 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { UploadAudioModal } from '@/components/modals/upload-audio-modal';
-import type { Project } from '@/lib/types'; // Assuming Project type is defined elsewhere
+import type { Project } from '@/lib/types';
+import { mockProjects } from '@/lib/mock-data';
 
 export default function NewProjectPage() {
   const [isModalOpen, setIsModalOpen] = useState(true); // Open modal by default
   const router = useRouter();
 
-  // This is a dummy handler. In a real app, this would likely update global state or a parent component's state.
   const handleProjectCreated = (project: Project) => {
-    console.log('New project created (from page):', project);
-    // The modal itself handles navigation and toast for now.
-    // If dashboard state needs update from here, it would be more complex.
+    // In a real app, this would be a database write. Here, we'll add it to our mock array.
+    mockProjects.unshift(project); // Add to the beginning of the array
+
+    // We can also dispatch a custom event to notify other components (like the dashboard)
+    // that a new project has been created, so they can update their state.
+    // This avoids complex prop drilling for our prototype.
+    const event = new CustomEvent('projectCreated', { detail: project });
+    window.dispatchEvent(event);
   };
 
   useEffect(() => {

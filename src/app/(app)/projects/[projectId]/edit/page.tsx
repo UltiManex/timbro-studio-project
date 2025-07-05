@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import type { Project, SoundEffect, SoundEffectInstance, Tone } from '@/lib/types';
 import { AVAILABLE_TONES, EDITOR_NUDGE_INCREMENT_MS } from '@/lib/constants';
-import { mockProjects, mockSoundEffectsLibrary, mockAISuggestions, mockTranscript } from '@/lib/mock-data';
+import { mockProjects, mockSoundEffectsLibrary } from '@/lib/mock-data';
 import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2 } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
 import { Slider } from '@/components/ui/slider';
@@ -39,7 +39,6 @@ interface SoundEffectHitComponentProps {
 
 
 function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance, onPreview }: SoundEffectHitComponentProps) {
-  // console.log(`SoundEffectHitItem for "${hit.name}": previewUrl from Algolia is "${hit.previewUrl}"`);
   return (
     <Button
       variant="ghost"
@@ -86,12 +85,13 @@ export default function ProjectEditPage() {
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
+    // In a real app, this would be a fetch from a database.
+    // For our prototype, we're adding the new project to the mockProjects array.
     const foundProject = mockProjects.find(p => p.id === projectId);
     if (foundProject) {
       setProject(foundProject);
-      setTimeout(() => {
-        setEffects(mockAISuggestions.map(sfx => ({...sfx, isUserAdded: false})));
-      }, 500);
+      // Load effects from the project data, not the global mock suggestions
+      setEffects(foundProject.effects?.map(ef => ({ ...ef, isUserAdded: false })) || []);
     } else {
       toast({ title: "Project not found", variant: "destructive" });
       router.push('/dashboard');
@@ -122,7 +122,6 @@ export default function ProjectEditPage() {
 
       if (previewUrl && previewUrl.trim() !== '' && !previewUrl.startsWith('#') && previewUrl !== 'undefined') {
         previewAudioRef.current.src = previewUrl;
-        // previewAudioRef.current.crossOrigin = "anonymous"; // Removed based on previous troubleshooting for local files
         
         // It's good practice to call load() after setting a new src,
         // though many browsers do it automatically.
@@ -180,7 +179,8 @@ export default function ProjectEditPage() {
   };
   
   const getHighlightedWordIndex = () => {
-    const words = mockTranscript.split(' ');
+    if (!project?.transcript) return -1;
+    const words = project.transcript.split(' ');
     const wordsPerSecond = words.length / audioDuration;
     return Math.floor(currentTime * wordsPerSecond);
   };
@@ -343,7 +343,7 @@ export default function ProjectEditPage() {
             <CardContent className="h-full pb-6">
               <ScrollArea className="h-[calc(100%-0rem)] pr-4"> {/* Adjust height as needed */}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {mockTranscript.split(' ').map((word, index) => (
+                  {project.transcript?.split(' ').map((word, index) => (
                     <span key={index} className={index === getHighlightedWordIndex() ? 'bg-primary/30 rounded' : ''}>
                       {word}{' '}
                     </span>
@@ -479,5 +479,3 @@ export default function ProjectEditPage() {
     </div>
   );
 }
-
-
