@@ -19,6 +19,8 @@ import { Slider } from '@/components/ui/slider';
 import { InstantSearch, SearchBox, Hits, Configure, Hit } from 'react-instantsearch-hooks-web';
 import algoliasearch from 'algoliasearch/lite';
 
+const LOCAL_STORAGE_KEY = 'timbro-projects';
+
 const algoliaAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID || '';
 const algoliaSearchApiKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY || '';
 const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME || 'sound_effects';
@@ -85,15 +87,23 @@ export default function ProjectEditPage() {
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // In a real app, this would be a fetch from a database.
-    // For our prototype, we're adding the new project to the mockProjects array.
-    const foundProject = mockProjects.find(p => p.id === projectId);
-    if (foundProject) {
-      setProject(foundProject);
-      // Load effects from the project data, not the global mock suggestions
-      setEffects(foundProject.effects?.map(ef => ({ ...ef, isUserAdded: false })) || []);
-    } else {
-      toast({ title: "Project not found", variant: "destructive" });
+    try {
+      const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
+      
+      const foundProject = allProjects.find((p: Project) => p.id === projectId);
+
+      if (foundProject) {
+        setProject(foundProject);
+        // Load effects from the project data
+        setEffects(foundProject.effects?.map((ef: SoundEffectInstance) => ({ ...ef, isUserAdded: false })) || []);
+      } else {
+        toast({ title: "Project not found", variant: "destructive" });
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      console.error("Failed to load project from localStorage:", error);
+      toast({ title: "Error loading project", variant: "destructive" });
       router.push('/dashboard');
     }
   }, [projectId, router]);
