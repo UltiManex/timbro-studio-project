@@ -20,6 +20,8 @@ export default function NewProjectPage() {
       // Add new project to the start of the list
       const updatedProjects = [project, ...storedProjects];
 
+      console.log('NewProjectPage: Saving projects to localStorage:', updatedProjects); // DEBUG LOG
+
       // Save back to storage
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
     } catch (error) {

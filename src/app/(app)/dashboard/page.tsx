@@ -36,11 +36,15 @@ export default function DashboardPage() {
   // Load projects from localStorage on initial render
   useEffect(() => {
     try {
-      const storedProjects = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (storedProjects) {
-        setProjects(JSON.parse(storedProjects));
+      const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      console.log('DashboardPage: Read from localStorage:', storedProjectsRaw); // DEBUG LOG
+      if (storedProjectsRaw) {
+        const parsedProjects = JSON.parse(storedProjectsRaw);
+        console.log('DashboardPage: Parsed projects:', parsedProjects); // DEBUG LOG
+        setProjects(parsedProjects);
       } else {
         // First time load, seed with mock data from the file
+        console.log('DashboardPage: No projects in localStorage, seeding with mock data.'); // DEBUG LOG
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockProjects));
         setProjects(mockProjects);
       }
@@ -61,6 +65,7 @@ export default function DashboardPage() {
   const updateProjects = (updatedProjects: Project[]) => {
     setProjects(updatedProjects);
     try {
+      console.log('DashboardPage: Updating projects in localStorage (e.g., on delete/update).'); // DEBUG LOG
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
     } catch (error) {
       console.error("Failed to update projects in localStorage:", error);
