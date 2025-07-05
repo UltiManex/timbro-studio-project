@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ProjectCard } from '@/components/dashboard/project-card';
 import { OnboardingModal } from '@/components/modals/onboarding-modal';
-import type { Project } from '@/lib/types';
+import type { Project, SoundEffectInstance } from '@/lib/types';
 import { PlusCircle, LayoutGrid, List } from 'lucide-react';
 import {
   DropdownMenu,
@@ -20,7 +20,6 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { mockProjects, mockSoundEffectsLibrary } from '@/lib/mock-data';
 import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
-import type { SoundEffectInstance } from '@/lib/types';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -85,15 +84,20 @@ export default function DashboardPage() {
 
         try {
           let aiSuggestions: SoundEffectInstance[] = [];
+          let transcript = project.transcript || '';
           
           if (project.defaultEffectPlacement === 'ai-optimized') {
+            if (!project.audioDataUri) {
+              throw new Error("Project is missing audio data for AI processing.");
+            }
             const aiResponse = await suggestSoundEffects({
-              audioTranscription: project.transcript || '',
+              audioDataUri: project.audioDataUri,
               selectedTone: project.selectedTone,
               availableEffects: mockSoundEffectsLibrary.map(({ previewUrl, ...rest }) => rest),
               audioDuration: project.duration || 60,
             });
-            aiSuggestions = aiResponse.soundEffectSuggestions.map(suggestion => ({
+            transcript = aiResponse.transcript;
+            aiSuggestions = (aiResponse.soundEffectSuggestions || []).map(suggestion => ({
               ...suggestion,
               id: `ai_inst_${Date.now()}_${Math.random()}`
             }));
@@ -102,7 +106,7 @@ export default function DashboardPage() {
           // Update the project in the main state and localStorage
           const updatedProjects = projects.map(p =>
             p.id === project.id
-              ? { ...p, status: 'Ready for Review', effects: aiSuggestions }
+              ? { ...p, status: 'Ready for Review', effects: aiSuggestions, transcript: transcript, audioDataUri: undefined } // Clear data URI after processing
               : p
           );
           updateProjects(updatedProjects);
@@ -112,7 +116,7 @@ export default function DashboardPage() {
           // Update the project to an 'Error' state
           const updatedProjects = projects.map(p =>
             p.id === project.id
-              ? { ...p, status: 'Error' }
+              ? { ...p, status: 'Error', audioDataUri: undefined } // Clear data URI on error too
               : p
           );
           updateProjects(updatedProjects);

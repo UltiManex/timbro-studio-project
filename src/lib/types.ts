@@ -9,6 +9,7 @@ export interface Project {
   status: 'Processing' | 'Ready for Review' | 'Completed' | 'Error';
   audioFileName?: string;
   audioFileSize?: number; // in bytes
+  audioDataUri?: string; // a base64 encoded data URI for the audio file
   duration?: number; // in seconds
   transcript?: string; // or a more structured transcript type
   effects?: SoundEffectInstance[];
@@ -19,7 +20,7 @@ export interface Project {
 
 export interface SoundEffect {
   id: string;
-  name: string;
+  name:string;
   tags: string[];
   tone: Tone[]; // Can belong to multiple tones
   previewUrl: string; // URL to preview the sound effect

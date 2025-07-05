@@ -38,6 +38,17 @@ interface UploadAudioModalProps {
   onProjectCreated: (project: any) => void;
 }
 
+const fileToDataUri = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve(reader.result as string);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: UploadAudioModalProps) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
@@ -84,23 +95,38 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     setDragActive(false);
   }, []);
   
-  const onSubmit = (data: ProjectFormValues) => {
+  const onSubmit = async (data: ProjectFormValues) => {
     setIsCreating(true);
 
+    const audioFile = data.audioFile[0];
+    let audioDataUri;
+    try {
+      audioDataUri = await fileToDataUri(audioFile);
+    } catch (error) {
+      console.error("Error converting file to data URI:", error);
+      toast({
+        title: "File Error",
+        description: "Could not read the selected audio file. Please try again.",
+        variant: "destructive"
+      });
+      setIsCreating(false);
+      return;
+    }
+
     // Create the project object with a 'Processing' status.
-    // The actual AI analysis will be handled by the dashboard page.
     const newProject = {
       id: `proj_${Date.now()}`,
       name: data.projectName,
       date: new Date().toISOString(),
       status: 'Processing' as const,
-      audioFileName: data.audioFile[0].name,
-      audioFileSize: data.audioFile[0].size,
+      audioFileName: audioFile.name,
+      audioFileSize: audioFile.size,
+      audioDataUri: audioDataUri,
       selectedTone: data.selectedTone,
       defaultEffectPlacement: data.defaultEffectPlacement,
       effects: [], // Start with empty effects
-      duration: 60, // Mock duration for now
-      transcript: mockTranscript, // Mock transcript for now
+      duration: 60, // Mock duration for now, can be extracted from audio later
+      transcript: "Processing transcript...", 
     };
 
     onProjectCreated(newProject);
