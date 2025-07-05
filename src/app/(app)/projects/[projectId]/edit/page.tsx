@@ -38,7 +38,7 @@ interface AlgoliaSoundEffectHit extends SoundEffect {
 
 interface SoundEffectHitComponentProps {
   hit: Hit<AlgoliaSoundEffectHit>;
-  onSelect: (effectId: string) => void;
+  onSelect: (effect: SoundEffect) => void;
   onPreview: (previewUrl: string, effectName: string) => void;
 }
 
@@ -50,7 +50,7 @@ function SoundEffectHitItem({ hit, onSelect, onPreview }: SoundEffectHitComponen
         buttonVariants({ variant: 'ghost' }),
         "w-full justify-start text-left h-auto py-2 cursor-pointer"
       )}
-      onClick={() => onSelect(hit.id)}
+      onClick={() => onSelect(hit)}
     >
       <div className="flex items-center justify-between w-full">
         <div className="flex-col">
@@ -96,9 +96,6 @@ export default function ProjectEditPage() {
 
       if (foundProject) {
         setProject(foundProject);
-        if (mainAudioRef.current && foundProject.audioDataUri) {
-          mainAudioRef.current.src = foundProject.audioDataUri;
-        }
       } else {
         toast({ title: "Project not found", variant: "destructive" });
         router.push('/dashboard');
@@ -255,13 +252,13 @@ export default function ProjectEditPage() {
     toast({ title: "Effect removed" });
   };
   
-  const handleSelectSoundForInstance = (effectId: string) => {
+  const handleSelectSoundForInstance = (effect: SoundEffect) => {
     if (!selectedEffectInstance) {
         toast({ title: "No Marker Selected", description: "Click on the waveform to add a marker first.", variant: "destructive" });
         return;
     }
-    updateSelectedEffect({ effectId });
-    toast({ title: "Effect updated", description: `Assigned '${mockSoundEffectsLibrary.find(sfx => sfx.id === effectId)?.name}' to the marker.` });
+    updateSelectedEffect({ effectId: effect.id });
+    toast({ title: "Effect updated", description: `Assigned '${effect.name}' to the marker.` });
   };
   
   const handleSaveProject = () => {
@@ -279,6 +276,17 @@ export default function ProjectEditPage() {
     toast({ title: "Export Complete!", description: "Your audio is ready for download from the dashboard." });
     router.push('/dashboard');
   };
+
+  // Set the audio source when the project data is available
+  useEffect(() => {
+    if (project?.audioDataUri && mainAudioRef.current) {
+        if (mainAudioRef.current.src !== project.audioDataUri) {
+            mainAudioRef.current.src = project.audioDataUri;
+            mainAudioRef.current.load(); // Important to load the new source
+        }
+    }
+  }, [project?.audioDataUri]);
+
 
   if (!project) {
     return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /> Loading project...</div>;
@@ -307,7 +315,6 @@ export default function ProjectEditPage() {
     <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden">
       <audio 
         ref={mainAudioRef}
-        src={project.audioDataUri}
         onTimeUpdate={() => mainAudioRef.current && setCurrentTime(mainAudioRef.current.currentTime)}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
@@ -417,7 +424,7 @@ export default function ProjectEditPage() {
                 Inspector
               </CardTitle>
               <CardDescription>
-                {selectedEffectInstance ? (currentEffectDetails?.name || (selectedEffectInstance.isUserAdded ? 'Add New Effect' : 'Effect Details')) : 'Select an effect or click waveform to add.'}
+                {selectedEffectInstance ? (currentEffectDetails?.name || (selectedEffectInstance.effectId ? 'Effect Details' : 'Add New Effect')) : 'Select an effect or click waveform to add.'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -450,7 +457,7 @@ export default function ProjectEditPage() {
                      <div className="pt-2 border-t">
                         <p className="text-sm font-medium mb-1">Quick Swap:</p>
                         {mockSoundEffectsLibrary.filter(sfx => sfx.id !== currentEffectDetails.id && sfx.tone.some(t => currentEffectDetails.tone.includes(t))).slice(0,2).map(swapSfx => (
-                           <Button key={swapSfx.id} variant="outline" size="sm" className="w-full mb-1 text-xs" onClick={() => handleSelectSoundForInstance(swapSfx.id)}>
+                           <Button key={swapSfx.id} variant="outline" size="sm" className="w-full mb-1 text-xs" onClick={() => handleSelectSoundForInstance(swapSfx)}>
                              Swap to: {swapSfx.name}
                            </Button>
                         ))}
