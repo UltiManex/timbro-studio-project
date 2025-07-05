@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -26,6 +27,9 @@ const algoliaSearchApiKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY || ''
 const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME || 'sound_effects';
 
 const searchClient = algoliasearch(algoliaAppId, algoliaSearchApiKey);
+
+// A more realistic approximation for transcript highlighting
+const APPROX_WORDS_PER_SECOND = 2.5; // Corresponds to 150 WPM
 
 interface AlgoliaSoundEffectHit extends SoundEffect {
   objectID: string;
@@ -196,10 +200,14 @@ export default function ProjectEditPage() {
   };
   
   const getHighlightedWordIndex = () => {
-    if (!project?.transcript || audioDuration === 0) return -1;
+    if (!project?.transcript) return -1;
     const words = project.transcript.split(' ');
-    const wordsPerSecond = words.length / audioDuration;
-    return Math.floor(currentTime * wordsPerSecond);
+    const estimatedIndex = Math.floor(currentTime * APPROX_WORDS_PER_SECOND);
+    // Ensure index doesn't go out of bounds
+    if (estimatedIndex >= words.length) {
+      return words.length - 1;
+    }
+    return estimatedIndex;
   };
 
   const handleNudge = (direction: 'left' | 'right') => {
@@ -333,11 +341,13 @@ export default function ProjectEditPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div ref={waveformRef} onClick={handleWaveformClick} className="h-32 bg-muted rounded-md relative cursor-crosshair flex items-center" aria-label="Audio waveform, click to add or select effect">
+              <div ref={waveformRef} onClick={handleWaveformClick} className="h-32 bg-muted rounded-md relative cursor-crosshair flex items-center overflow-hidden" aria-label="Audio waveform, click to add or select effect">
                 {/* This is a placeholder for waveform visualization */}
-                {Array.from({ length: 50 }).map((_, i) => (
-                  <div key={i} className="w-1 bg-primary/30 rounded-full" style={{ height: `${Math.random() * 80 + 10}%`, marginRight: '2px' }}></div>
-                ))}
+                 <div className="flex items-center h-full w-full">
+                    {Array.from({ length: 200 }).map((_, i) => (
+                      <div key={i} className="flex-grow bg-primary/30 rounded-full" style={{ height: `${Math.random() * 80 + 10}%`, minWidth: '2px', marginRight: '2px' }}></div>
+                    ))}
+                </div>
                 {/* Playhead */}
                 {audioDuration > 0 && (
                   <div className="absolute top-0 bottom-0 bg-primary w-0.5" style={{ left: `${(currentTime / audioDuration) * 100}%` }}></div>
