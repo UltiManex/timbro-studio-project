@@ -39,19 +39,6 @@ export default function DashboardPage() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    const handleProjectCreated = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      setProjects(prevProjects => [customEvent.detail, ...prevProjects]);
-    };
-
-    window.addEventListener('projectCreated', handleProjectCreated);
-
-    return () => {
-      window.removeEventListener('projectCreated', handleProjectCreated);
-    };
-  }, []);
-  
   // This effect simulates a background worker queue for AI processing.
   useEffect(() => {
     const projectsToProcess = projects.filter(

@@ -107,13 +107,12 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     
     toast({
       title: "Project Created!",
-      description: `'${data.projectName}' is now being processed.`,
+      description: `'${data.projectName}' is now being processed. Check the dashboard for status.`,
     });
 
     setIsCreating(false);
     onOpenChange(false);
     form.reset();
-    router.push('/dashboard');
   };
 
   return (

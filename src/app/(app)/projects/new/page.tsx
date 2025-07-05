@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,20 +10,17 @@ import { mockProjects } from '@/lib/mock-data';
 export default function NewProjectPage() {
   const [isModalOpen, setIsModalOpen] = useState(true); // Open modal by default
   const router = useRouter();
+  const [projectCreated, setProjectCreated] = useState(false);
 
   const handleProjectCreated = (project: Project) => {
     // In a real app, this would be a database write. Here, we'll add it to our mock array.
     mockProjects.unshift(project); // Add to the beginning of the array
-
-    // We can also dispatch a custom event to notify other components (like the dashboard)
-    // that a new project has been created, so they can update their state.
-    // This avoids complex prop drilling for our prototype.
-    const event = new CustomEvent('projectCreated', { detail: project });
-    window.dispatchEvent(event);
+    setProjectCreated(true);
   };
 
   useEffect(() => {
-    // If modal is closed without creating a project, redirect to dashboard
+    // If modal is closed, it means we either created a project or cancelled.
+    // In either case, we should redirect to the dashboard.
     if (!isModalOpen) {
       router.replace('/dashboard');
     }
