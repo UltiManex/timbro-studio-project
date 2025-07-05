@@ -1,9 +1,10 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,12 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import type { Project, SoundEffect, SoundEffectInstance, Tone } from '@/lib/types';
 import { AVAILABLE_TONES, EDITOR_NUDGE_INCREMENT_MS } from '@/lib/constants';
-import { mockProjects, mockSoundEffectsLibrary } from '@/lib/mock-data';
+import { mockSoundEffectsLibrary } from '@/lib/mock-data';
 import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2 } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
 import { Slider } from '@/components/ui/slider';
 import { InstantSearch, SearchBox, Hits, Configure, Hit } from 'react-instantsearch-hooks-web';
 import algoliasearch from 'algoliasearch/lite';
+import { cn } from '@/lib/utils';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -42,15 +44,15 @@ interface SoundEffectHitComponentProps {
 
 function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInstance, onPreview }: SoundEffectHitComponentProps) {
   return (
-    <Button
-      variant="ghost"
-      className="w-full justify-start text-left h-auto py-2"
+    <div
+      className={cn(
+        buttonVariants({ variant: 'ghost' }),
+        "w-full justify-start text-left h-auto py-2 cursor-pointer"
+      )}
       onClick={() => {
-        if (selectedEffectInstance?.isUserAdded) {
+        if (selectedEffectInstance) {
           const updatedInstance = { ...selectedEffectInstance, effectId: hit.id };
           setSelectedEffectInstance(updatedInstance);
-        } else {
-          onPreview(hit.previewUrl, hit.name);
         }
       }}
     >
@@ -65,7 +67,7 @@ function SoundEffectHitItem({ hit, selectedEffectInstance, setSelectedEffectInst
           <Volume2 className="h-4 w-4 text-muted-foreground hover:text-primary" />
         </Button>
       </div>
-    </Button>
+    </div>
   );
 }
 
@@ -126,23 +128,20 @@ export default function ProjectEditPage() {
   }, [isPlaying, audioDuration]);
 
   const handlePreviewEffect = (previewUrl: string, effectName: string) => {
-    // 1. Stop any currently playing audio first.
     if (previewAudioRef.current) {
         previewAudioRef.current.pause();
         previewAudioRef.current.currentTime = 0;
     }
 
-    // 2. Validate the new URL.
     if (!previewUrl || previewUrl.trim() === '' || previewUrl.startsWith('#') || previewUrl === 'undefined') {
         toast({
             title: "No Preview Available",
             description: `Preview for ${effectName} is not set up or URL is invalid.`,
             variant: "destructive",
         });
-        return; // Exit early
+        return;
     }
 
-    // 3. If the URL is valid, try to play it.
     if (previewAudioRef.current) {
         previewAudioRef.current.src = previewUrl;
         previewAudioRef.current.load();
@@ -491,5 +490,3 @@ export default function ProjectEditPage() {
     </div>
   );
 }
-
-    
