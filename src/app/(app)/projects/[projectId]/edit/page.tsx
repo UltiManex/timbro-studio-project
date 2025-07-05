@@ -86,6 +86,7 @@ export default function ProjectEditPage() {
   const waveformRef = useRef<HTMLDivElement>(null);
   const mainAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const playedEffectsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     try {
@@ -144,7 +145,33 @@ export default function ProjectEditPage() {
     if (mainAudioRef.current) {
       mainAudioRef.current.currentTime = time;
       setCurrentTime(time);
+      playedEffectsRef.current.clear(); // Reset played effects on seek
     }
+  };
+  
+  const handleTimeUpdate = () => {
+    if (!mainAudioRef.current || !project?.effects) return;
+
+    const newTime = mainAudioRef.current.currentTime;
+    setCurrentTime(newTime);
+    
+    // Play sound effects in real-time
+    project.effects.forEach(effectInstance => {
+      // Check if the effect should play and hasn't been played in this cycle
+      if (
+        !playedEffectsRef.current.has(effectInstance.id) &&
+        newTime >= effectInstance.timestamp &&
+        newTime < effectInstance.timestamp + 0.5 // A small window to trigger
+      ) {
+        const effectDetails = mockSoundEffectsLibrary.find(e => e.id === effectInstance.effectId);
+        if (effectDetails && effectDetails.previewUrl) {
+          const sfx = new Audio(effectDetails.previewUrl);
+          sfx.volume = effectInstance.volume ?? 1.0;
+          sfx.play().catch(e => console.error("SFX playback error:", e));
+          playedEffectsRef.current.add(effectInstance.id);
+        }
+      }
+    });
   };
 
   const handlePreviewEffect = (previewUrl: string, effectName: string) => {
@@ -272,7 +299,7 @@ export default function ProjectEditPage() {
     }
 
     updateSelectedEffect({ effectId: effectId });
-    toast({ title: "Effect updated", description: `Assigned '${effect.name || "Effect"}' to the marker.` });
+    toast({ title: "Effect assigned", description: "The effect has been assigned to the marker." });
   };
   
   const handleSaveProject = () => {
@@ -329,10 +356,14 @@ export default function ProjectEditPage() {
     <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden">
       <audio 
         ref={mainAudioRef}
-        onTimeUpdate={() => mainAudioRef.current && setCurrentTime(mainAudioRef.current.currentTime)}
-        onPlay={() => setIsPlaying(true)}
+        onTimeUpdate={handleTimeUpdate}
+        onPlay={() => {
+          setIsPlaying(true);
+          playedEffectsRef.current.clear();
+        }}
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
+        onSeeked={() => playedEffectsRef.current.clear()}
         onLoadedMetadata={() => {
            if (mainAudioRef.current) {
              const newDuration = mainAudioRef.current.duration;
