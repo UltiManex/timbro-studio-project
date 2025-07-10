@@ -8,6 +8,19 @@ import { toast } from '@/hooks/use-toast';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
+// This is a temporary, in-memory store for audio data of newly created projects.
+// In a real app, this would be handled by a global state manager (like Zustand or Redux)
+// or by uploading the file to a server immediately.
+const newProjectAudioStore: { [projectId: string]: string } = {};
+
+// We need to export this store so the dashboard can access it.
+// This is not ideal but works for this level of app complexity.
+// A better solution is a shared state management library (Zustand, Redux).
+if (typeof window !== 'undefined') {
+  (window as any).newProjectAudioStore = newProjectAudioStore;
+}
+
+
 export default function NewProjectPage() {
   const [isModalOpen, setIsModalOpen] = useState(true); // Open modal by default
   const router = useRouter();
@@ -18,8 +31,15 @@ export default function NewProjectPage() {
       const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
       const storedProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
       
+      // Place the audio data in the temporary in-memory store
+      // so the dashboard can pick it up for processing.
+      if (project.audioDataUri) {
+         if (typeof window !== 'undefined') {
+            (window as any).newProjectAudioStore[project.id] = project.audioDataUri;
+         }
+      }
+
       // IMPORTANT: Do not save the large audioDataUri to localStorage to avoid exceeding storage limits.
-      // The dashboard page will handle the processing in-memory.
       const { audioDataUri, ...projectToStore } = project;
 
       // Add new project (without audio data) to the start of the list
@@ -32,13 +52,6 @@ export default function NewProjectPage() {
         title: "Project Created!",
         description: `'${project.name}' is now being processed. Check the dashboard for status.`,
       });
-      
-      // A more robust solution might use sessionStorage or a state manager
-      // to pass the audioDataUri to the dashboard for processing.
-      // For now, the dashboard's useEffect will see a "Processing" project
-      // but won't be able to act on it without the data URI.
-      // Let's rely on the user navigating to the editor where the URI would be needed.
-      // The dashboard processing logic will need to be adapted.
 
     } catch (error) {
       console.error("Failed to save project to localStorage", error);
