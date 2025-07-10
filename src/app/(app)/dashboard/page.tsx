@@ -112,7 +112,7 @@ export default function DashboardPage() {
           }
           
           // Create a new version of the project that includes the audioDataUri for the editor
-          const projectWithAudio = { ...project, status: 'Ready for Review', effects: aiSuggestions, transcript: transcript, audioDataUri: audioDataUri };
+          const projectWithAudio = { ...project, status: 'Ready for Review' as const, effects: aiSuggestions, transcript: transcript, audioDataUri: audioDataUri };
 
           // Update the project in the main state and localStorage
           const updatedProjects = projects.map(p =>
@@ -130,12 +130,14 @@ export default function DashboardPage() {
           // Update the project to an 'Error' state
           const updatedProjects = projects.map(p =>
             p.id === project.id
-              ? { ...p, status: 'Error' }
+              ? { ...p, status: 'Error' as const }
               : p
           );
           updateProjects(updatedProjects);
            // Clean up the in-memory store
-          delete newProjectAudioStore[project.id];
+          if (newProjectAudioStore[project.id]) {
+            delete newProjectAudioStore[project.id];
+          }
         }
       });
     }
