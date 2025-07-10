@@ -169,7 +169,7 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
             <Terminal className="h-4 w-4" />
             <AlertTitle>Firebase Not Configured</AlertTitle>
             <AlertDescription>
-              Firebase Storage is not set up. Please add your Firebase configuration to a <code>.env.local</code> file to enable file uploads.
+              Firebase Storage is not set up. Please add your Firebase configuration to your <code>.env</code> file to enable file uploads.
             </AlertDescription>
           </Alert>
         )}

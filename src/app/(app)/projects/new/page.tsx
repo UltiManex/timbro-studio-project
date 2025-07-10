@@ -23,7 +23,7 @@ export default function NewProjectPage() {
   const handleProjectCreated = async (project: Project, audioFile: File) => {
     try {
       if (!storage) {
-        throw new Error("Firebase Storage is not configured. Please check your .env.local file.");
+        throw new Error("Firebase Storage is not configured. Please check your .env file.");
       }
       // 1. Upload the audio file to Firebase Storage
       const storageRef = ref(storage, `uploads/${project.id}/${audioFile.name}`);

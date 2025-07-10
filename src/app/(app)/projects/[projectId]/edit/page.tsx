@@ -101,18 +101,32 @@ export default function ProjectEditPage() {
   useEffect(() => {
     let foundProject: Project | null = null;
     
-    // Load project from local storage
+    // 1. Try to load from session storage first (for immediate navigation from dashboard)
     try {
-        const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-        const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
-        foundProject = allProjects.find((p: Project) => p.id === projectId) || null;
-    } catch (error) {
-        console.error("Failed to load project from localStorage:", error);
+        const sessionProjectRaw = sessionStorage.getItem(`timbro-active-project-${projectId}`);
+        if (sessionProjectRaw) {
+            foundProject = JSON.parse(sessionProjectRaw);
+            // Clean up immediately after use
+            sessionStorage.removeItem(`timbro-active-project-${projectId}`);
+        }
+    } catch(e) { console.error("Could not read project from session storage", e); }
+    
+    // 2. If not in session, fall back to local storage
+    if (!foundProject) {
+        try {
+            const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+            const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
+            foundProject = allProjects.find((p: Project) => p.id === projectId) || null;
+        } catch (error) {
+            console.error("Failed to load project from localStorage:", error);
+        }
     }
 
     if (foundProject) {
-        // Now, check for the persistent audioUrl
-        if (!foundProject.audioUrl) {
+        // Now, check for the audio source (either the dataURI from session or the persistent URL)
+        const audioSource = foundProject.audioDataUri || foundProject.audioUrl;
+        
+        if (!audioSource) {
             toast({
                 title: "Audio Data Missing",
                 description: "The audio for this project could not be found. Please return to the dashboard and try again.",
@@ -121,8 +135,8 @@ export default function ProjectEditPage() {
             });
         }
         setProject(foundProject);
-        if (foundProject.audioUrl) {
-            generateWaveform(foundProject.audioUrl).then(setWaveform);
+        if (audioSource) {
+            generateWaveform(audioSource).then(setWaveform);
         }
     } else {
         toast({ title: "Project not found", variant: "destructive" });
@@ -135,8 +149,9 @@ export default function ProjectEditPage() {
   const updateProject = (updatedProjectData: Partial<Project>) => {
     if (!project) return;
     
-    const updatedProject = { ...project, ...updatedProjectData };
-    setProject(updatedProject);
+    // Create the updated project object for React state
+    const updatedProjectForState = { ...project, ...updatedProjectData };
+    setProject(updatedProjectForState);
 
     try {
       const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -144,7 +159,9 @@ export default function ProjectEditPage() {
       const projectIndex = allProjects.findIndex((p: Project) => p.id === projectId);
 
       if (projectIndex !== -1) {
-        allProjects[projectIndex] = updatedProject;
+        // Create a version for localStorage that EXCLUDES audioDataUri
+        const { audioDataUri, ...projectForStorage } = updatedProjectForState;
+        allProjects[projectIndex] = projectForStorage;
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allProjects));
       }
     } catch (error) {
@@ -342,13 +359,14 @@ export default function ProjectEditPage() {
 
   // Set the audio source when the project data is available
   useEffect(() => {
-    if (project?.audioUrl && mainAudioRef.current) {
-        if (mainAudioRef.current.src !== project.audioUrl) {
-            mainAudioRef.current.src = project.audioUrl;
+    const audioSource = project?.audioDataUri || project?.audioUrl;
+    if (audioSource && mainAudioRef.current) {
+        if (mainAudioRef.current.src !== audioSource) {
+            mainAudioRef.current.src = audioSource;
             mainAudioRef.current.load();
         }
     }
-  }, [project?.audioUrl]);
+  }, [project?.audioDataUri, project?.audioUrl]);
 
 
   if (!project) {
@@ -356,6 +374,7 @@ export default function ProjectEditPage() {
   }
   
   const currentEffectDetails = selectedEffectInstance ? mockSoundEffectsLibrary.find(libSfx => libSfx.id === selectedEffectInstance.effectId) : null;
+  const audioSource = project.audioDataUri || project.audioUrl;
 
   if (!algoliaAppId || !algoliaSearchApiKey || !algoliaIndexName) {
      return (
@@ -372,7 +391,7 @@ export default function ProjectEditPage() {
                       You'll need <code>NEXT_PUBLIC_ALGOLIA_APP_ID</code>, <code>NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY</code>, and <code>NEXT_PUBLIC_ALGOLIA_INDEX_NAME</code>.
                     </p>
                     <p className="text-sm mt-4 text-muted-foreground">
-                      After adding the keys, run the indexing command from the dashboard.
+                      After adding the keys, run the indexing command from your terminal: `npm run algolia:index`.
                     </p>
                 </CardContent>
             </Card>
@@ -440,7 +459,7 @@ export default function ProjectEditPage() {
                       <div key={i} className="flex-grow bg-primary/50 rounded-full" style={{ height: `${amp * 100}%` }}></div>
                     )) : (
                        <div className="flex items-center justify-center w-full h-full text-muted-foreground">
-                         {project.audioUrl ? 'Generating waveform...' : 'No audio loaded'}
+                         {audioSource ? 'Generating waveform...' : 'No audio loaded'}
                        </div>
                     )}
                 </div>

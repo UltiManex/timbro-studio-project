@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ProjectCard } from '@/components/dashboard/project-card';
@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const [processingProjects, setProcessingProjects] = useState<Set<string>>(new Set());
 
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Load projects from localStorage on initial render
   useEffect(() => {
