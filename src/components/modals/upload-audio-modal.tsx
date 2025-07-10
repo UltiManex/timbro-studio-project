@@ -19,6 +19,9 @@ import { UploadCloud, FileAudio, X, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TrustBadgeIcon, ToneIcon } from '@/components/icons';
 import { mockTranscript } from '@/lib/mock-data';
+import { isFirebaseConfigured } from '@/lib/firebase';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { Terminal } from 'lucide-react';
 
 const projectSchema = z.object({
   projectName: z.string().min(3, { message: 'Project name must be at least 3 characters.' }),
@@ -35,7 +38,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 interface UploadAudioModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onProjectCreated: (project: Project) => void;
+  onProjectCreated: (project: Project, audioFile: File) => void;
 }
 
 const fileToDataUri = (file: File): Promise<string> => {
@@ -110,14 +113,14 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
   const onSubmit = async (data: ProjectFormValues) => {
     setIsCreating(true);
 
-    const audioFile = data.audioFile[0];
+    const uploadedFile = data.audioFile[0];
     let audioDataUri;
     let audioDuration;
 
     try {
       [audioDataUri, audioDuration] = await Promise.all([
-        fileToDataUri(audioFile),
-        getAudioDuration(audioFile)
+        fileToDataUri(uploadedFile),
+        getAudioDuration(uploadedFile)
       ]);
     } catch (error) {
       console.error("Error processing audio file:", error);
@@ -136,9 +139,9 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
       name: data.projectName,
       date: new Date().toISOString(),
       status: 'Processing' as const,
-      audioFileName: audioFile.name,
-      audioFileSize: audioFile.size,
-      audioDataUri: audioDataUri,
+      audioFileName: uploadedFile.name,
+      audioFileSize: uploadedFile.size,
+      audioDataUri: audioDataUri, // For immediate AI processing
       duration: Math.round(audioDuration), 
       selectedTone: data.selectedTone,
       defaultEffectPlacement: data.defaultEffectPlacement,
@@ -146,7 +149,7 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
       transcript: "Processing transcript...", 
     };
 
-    onProjectCreated(newProject);
+    await onProjectCreated(newProject, uploadedFile);
     
     setIsCreating(false);
     onOpenChange(false);
@@ -160,6 +163,17 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
           <DialogTitle className="text-2xl font-headline">Create New Project</DialogTitle>
           <DialogDescription>Upload your audio file and configure analysis settings.</DialogDescription>
         </DialogHeader>
+
+        {!isFirebaseConfigured && (
+          <Alert variant="destructive">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>Firebase Not Configured</AlertTitle>
+            <AlertDescription>
+              Firebase Storage is not set up. Please add your Firebase configuration to a <code>.env.local</code> file to enable file uploads.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-2">
           <div>
             <Label htmlFor="projectName">Project Name</Label>
@@ -281,7 +295,7 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={isCreating || !form.formState.isValid}>
+            <Button type="submit" disabled={isCreating || !form.formState.isValid || !isFirebaseConfigured}>
               {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {isCreating ? 'Creating Project...' : 'Analyze Audio'}
             </Button>

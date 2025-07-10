@@ -9,7 +9,8 @@ export interface Project {
   status: 'Processing' | 'Ready for Review' | 'Completed' | 'Error';
   audioFileName?: string;
   audioFileSize?: number; // in bytes
-  audioDataUri?: string; // a base64 encoded data URI for the audio file
+  audioDataUri?: string; // a base64 encoded data URI for the audio file, used for processing
+  audioUrl?: string; // a permanent URL for the audio file in Firebase Storage
   duration?: number; // in seconds
   transcript?: string; // or a more structured transcript type
   effects?: SoundEffectInstance[];

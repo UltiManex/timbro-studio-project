@@ -100,54 +100,34 @@ export default function ProjectEditPage() {
 
   useEffect(() => {
     let foundProject: Project | null = null;
-    // Prioritize loading from session storage, which holds the full object with audioDataUri
-    try {
-      const sessionData = sessionStorage.getItem(`timbro-active-project-${projectId}`);
-      if (sessionData) {
-        foundProject = JSON.parse(sessionData);
-      }
-    } catch (e) {
-      console.warn("Could not parse project from session storage:", e);
-    }
     
-    // Fallback to local storage if session storage fails or is empty
-    if (!foundProject) {
-        try {
-            const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-            const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
-            foundProject = allProjects.find((p: Project) => p.id === projectId) || null;
-        } catch (error) {
-            console.error("Failed to load project from localStorage:", error);
-        }
+    // Load project from local storage
+    try {
+        const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
+        foundProject = allProjects.find((p: Project) => p.id === projectId) || null;
+    } catch (error) {
+        console.error("Failed to load project from localStorage:", error);
     }
 
     if (foundProject) {
-        // Now, the critical check for audio data happens after trying both sources
-        if (!foundProject.audioDataUri) {
+        // Now, check for the persistent audioUrl
+        if (!foundProject.audioUrl) {
             toast({
                 title: "Audio Data Missing",
-                description: "The audio for this project can't be loaded. This can happen if you refresh the editor page. Please return to the dashboard and re-enter the project.",
+                description: "The audio for this project could not be found. Please return to the dashboard and try again.",
                 variant: "destructive",
                 duration: 10000,
             });
         }
         setProject(foundProject);
-        if (foundProject.audioDataUri) {
-            generateWaveform(foundProject.audioDataUri).then(setWaveform);
+        if (foundProject.audioUrl) {
+            generateWaveform(foundProject.audioUrl).then(setWaveform);
         }
     } else {
         toast({ title: "Project not found", variant: "destructive" });
         router.push('/dashboard');
     }
-    
-    // Clean up session storage after use
-    return () => {
-        try {
-            sessionStorage.removeItem(`timbro-active-project-${projectId}`);
-        } catch (e) {
-            // Fails silently
-        }
-    };
 }, [projectId, router]);
 
 
@@ -159,19 +139,12 @@ export default function ProjectEditPage() {
     setProject(updatedProject);
 
     try {
-      // Also update session storage if it exists, to keep it fresh
-      if (sessionStorage.getItem(`timbro-active-project-${projectId}`)) {
-          sessionStorage.setItem(`timbro-active-project-${projectId}`, JSON.stringify(updatedProject));
-      }
-
       const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
       const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
       const projectIndex = allProjects.findIndex((p: Project) => p.id === projectId);
 
       if (projectIndex !== -1) {
-        // Exclude audioDataUri from localStorage
-        const { audioDataUri, ...projectToStore } = updatedProject;
-        allProjects[projectIndex] = projectToStore;
+        allProjects[projectIndex] = updatedProject;
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allProjects));
       }
     } catch (error) {
@@ -369,13 +342,13 @@ export default function ProjectEditPage() {
 
   // Set the audio source when the project data is available
   useEffect(() => {
-    if (project?.audioDataUri && mainAudioRef.current) {
-        if (mainAudioRef.current.src !== project.audioDataUri) {
-            mainAudioRef.current.src = project.audioDataUri;
-            mainAudioRef.current.load(); // Important to load the new source
+    if (project?.audioUrl && mainAudioRef.current) {
+        if (mainAudioRef.current.src !== project.audioUrl) {
+            mainAudioRef.current.src = project.audioUrl;
+            mainAudioRef.current.load();
         }
     }
-  }, [project?.audioDataUri]);
+  }, [project?.audioUrl]);
 
 
   if (!project) {
@@ -411,6 +384,7 @@ export default function ProjectEditPage() {
     <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden">
       <audio 
         ref={mainAudioRef}
+        crossOrigin="anonymous"
         onTimeUpdate={handleTimeUpdate}
         onPlay={() => {
           setIsPlaying(true);
@@ -466,7 +440,7 @@ export default function ProjectEditPage() {
                       <div key={i} className="flex-grow bg-primary/50 rounded-full" style={{ height: `${amp * 100}%` }}></div>
                     )) : (
                        <div className="flex items-center justify-center w-full h-full text-muted-foreground">
-                         {project.audioDataUri ? 'Generating waveform...' : 'No audio loaded'}
+                         {project.audioUrl ? 'Generating waveform...' : 'No audio loaded'}
                        </div>
                     )}
                 </div>
