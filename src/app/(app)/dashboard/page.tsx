@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -77,8 +78,6 @@ export default function DashboardPage() {
     setIsIndexing(true);
     toast({ title: 'Algolia Indexing Started', description: 'Populating the sound effect library...' });
 
-    // We can't run the script directly, so we'll call a server action/API route if we had one.
-    // For this prototype, we'll simulate the script's logic on the client.
     // This requires exposing the Admin API key on the client, which is NOT SAFE FOR PRODUCTION.
     // This is acceptable only for this temporary, local-only solution.
     const algoliaAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
@@ -92,36 +91,39 @@ export default function DashboardPage() {
     }
     
     try {
-        // Since we can't import 'algoliasearch' full module on the client easily,
-        // we'll use the fetch API to interact with Algolia's REST API.
+        // We use the fetch API to interact with Algolia's REST API.
         const records = mockSoundEffectsLibrary.map((effect) => ({
             ...effect,
             objectID: effect.id,
         }));
 
-        const client = {
-            clear: () => fetch(`https://${algoliaAppId}-dsn.algolia.net/1/indexes/${algoliaIndexName}/clear`, {
-                method: 'POST',
-                headers: { 'X-Algolia-Application-Id': algoliaAppId, 'X-Algolia-API-Key': algoliaAdminApiKey },
-            }),
-            save: () => fetch(`https://${algoliaAppId}.algolia.net/1/indexes/${algoliaIndexName}/batch`, {
-                method: 'POST',
-                headers: { 'X-Algolia-Application-Id': algoliaAppId, 'X-Algolia-API-Key': algoliaAdminApiKey },
-                body: JSON.stringify({ requests: records.map(r => ({ action: 'addObject', body: r })) }),
-            }),
-            settings: () => fetch(`https://${algoliaAppId}.algolia.net/1/indexes/${algoliaIndexName}/settings`, {
-                 method: 'PUT',
-                 headers: { 'X-Algolia-Application-Id': algoliaAppId, 'X-Algolia-API-Key': algoliaAdminApiKey },
-                 body: JSON.stringify({
-                    searchableAttributes: ['name', 'tags', 'unordered(name)', 'unordered(tags)'],
-                    attributesForFaceting: ['filterOnly(tone)'],
-                 }),
-            })
+        const headers = { 
+            'X-Algolia-Application-Id': algoliaAppId, 
+            'X-Algolia-API-Key': algoliaAdminApiKey 
         };
-        
-        await client.clear();
-        await client.save();
-        await client.settings();
+
+        // 1. Clear the index
+        await fetch(`https://${algoliaAppId}.algolia.net/1/indexes/${algoliaIndexName}/clear`, {
+            method: 'POST',
+            headers,
+        });
+
+        // 2. Add new records
+        await fetch(`https://${algoliaAppId}.algolia.net/1/indexes/${algoliaIndexName}/batch`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ requests: records.map(r => ({ action: 'addObject', body: r })) }),
+        });
+
+        // 3. Set index settings
+        await fetch(`https://${algoliaAppId}.algolia.net/1/indexes/${algoliaIndexName}/settings`, {
+             method: 'PUT',
+             headers,
+             body: JSON.stringify({
+                searchableAttributes: ['name', 'tags', 'unordered(name)', 'unordered(tags)'],
+                attributesForFaceting: ['filterOnly(tone)'],
+             }),
+        });
 
         toast({ title: 'Indexing Complete!', description: 'Your sound library is ready to be searched.' });
     } catch (error) {
@@ -285,3 +287,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
