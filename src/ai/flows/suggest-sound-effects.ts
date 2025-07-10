@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -51,29 +52,29 @@ const prompt = ai.definePrompt({
   name: 'suggestSoundEffectsPrompt',
   input: {schema: SuggestSoundEffectsInputSchema},
   output: {schema: SuggestSoundEffectsOutputSchema},
-  prompt: `You are an expert audio post-production assistant and sound designer. Your task is to first transcribe an audio file and then suggest sound effects to enhance it based on the generated transcript and a desired tone.
+  prompt: `You are an expert audio post-production assistant and sound designer. Your goal is to analyze an audio file, transcribe it, and then intelligently place sound effects to enhance the narrative based on the content and a desired tone.
 
-Your task has two parts:
-1.  **Transcribe the Audio**: Listen to the provided audio file and generate an accurate text transcript.
-2.  **Suggest Sound Effects**: Based on the transcript you just generated, identify key moments that could be enhanced by a sound effect. Place these effects at appropriate timestamps.
+Follow this multi-step process:
+1.  **Transcribe the Audio**: First, create a complete and accurate text transcript of the provided audio file.
+2.  **Analyze the Transcript**: Read through the transcript you just generated. Identify key moments, emotional shifts, punchlines, actions, or phrases that would be enhanced by a sound effect. For example, look for jokes, moments of tension, dramatic pauses, or inspiring statements.
+3.  **Map Moments to Sound Effects**: For each key moment you identify, select the most appropriate sound effect from the 'availableEffects' library. Your choice should be guided by the moment's context and the user's overall 'selectedTone'. For example, if the tone is 'Comedic' and the transcript has a punchline, a "Comical Boing" would be a good choice. If the tone is 'Dramatic' and there's a major reveal, "Dramatic Swell" would be fitting.
+4.  **Determine Timestamp**: Place each chosen sound effect at the precise timestamp where the corresponding moment occurs in the audio.
 
 RULES:
 - Your response MUST be a single JSON object with two keys: "transcript" and "soundEffectSuggestions".
-- You MUST only suggest effects from the provided 'availableEffects' library.
-- You MUST use the correct 'id' for the 'effectId' field (e.g., "sfx_001").
-- The 'timestamp' for each effect MUST be a number in seconds and MUST NOT exceed the 'audioDuration'.
-- Analyze the transcribed content and the user's 'selectedTone' to make relevant choices. For example, for a 'Comedic' tone, use funny effects like "Comical Boing" or "Sad Trombone". For a 'Dramatic' tone, use "Dramatic Swell".
-- Distribute the sound effects throughout the audio timeline naturally. Do not place them all at the beginning.
+- The 'transcript' key must contain the full, accurate transcription of the audio.
+- The 'soundEffectSuggestions' array should contain your carefully chosen effects.
+- You MUST only suggest effects from the provided 'availableEffects' library, using the correct 'id' for the 'effectId' field (e.g., "sfx_001").
+- The 'timestamp' for each effect MUST be a number in seconds and MUST NOT exceed the 'audioDuration'. Do not place all effects at the start; they should be distributed logically throughout the audio timeline according to your analysis.
 
 Here is the information for your task:
 - Audio File to Analyze: {{media url=audioDataUri}}
-- Selected Tone: {{{selectedTone}}}
+- Selected Overall Tone: {{{selectedTone}}}
 - Audio Duration: {{{audioDuration}}} seconds.
-
 - Available Sound Effects Library (JSON):
 {{{json availableEffects}}}
 
-Based on all this information, generate the JSON output containing the full transcript and the list of sound effect suggestions.
+Now, based on your expert analysis, generate the JSON output containing the full transcript and the list of intelligent sound effect suggestions.
 `,
 });
 
