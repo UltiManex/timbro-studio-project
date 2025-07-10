@@ -91,7 +91,7 @@ export default function DashboardPage() {
       await index.clearObjects();
       await index.saveObjects(records);
       await index.setSettings({
-        searchableAttributes: ['name', 'tags'],
+        searchableAttributes: ['name', 'tags', 'unordered(name)', 'unordered(tags)'],
         attributesForFaceting: ['filterOnly(tone)'],
       });
 

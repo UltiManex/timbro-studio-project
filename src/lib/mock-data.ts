@@ -8,7 +8,7 @@ export const mockProjects: Project[] = [
   { id: 'proj_4', name: 'Quick Update', date: new Date(Date.now() - 86400000 * 10).toISOString(), status: 'Error', audioFileName: 'update_audio.m4a', duration: 300, selectedTone: 'Suspenseful', defaultEffectPlacement: 'manual-only', effects: [], transcript: "A quick update for everyone." },
 ];
 
-// Ensure these MP3 files exist in your `public/sounds/` directory.
+// This library now matches the 8 files present in the public/sounds/ folder.
 export const mockSoundEffectsLibrary: SoundEffect[] = [
   { id: 'sfx_001', name: 'Comical Boing', tags: ['boing', 'jump', 'funny'], tone: ['Comedic'], previewUrl: '/sounds/comical-boing.mp3' },
   { id: 'sfx_002', name: 'Dramatic Swell', tags: ['swell', 'tension', 'reveal'], tone: ['Dramatic', 'Suspenseful'], previewUrl: '/sounds/dramatic-swell.mp3' },
@@ -18,8 +18,6 @@ export const mockSoundEffectsLibrary: SoundEffect[] = [
   { id: 'sfx_006', name: 'Heartbeat', tags: ['heart', 'pulse', 'tense'], tone: ['Suspenseful', 'Dramatic'], previewUrl: '/sounds/heartbeat.mp3' },
   { id: 'sfx_007', name: 'Record Scratch', tags: ['stop', 'interrupt', 'funny'], tone: ['Comedic'], previewUrl: '/sounds/record-scratch.mp3' },
   { id: 'sfx_008', name: 'Inspiring Piano Chord', tags: ['piano', 'hopeful', 'positive'], tone: ['Inspirational'], previewUrl: '/sounds/inspiring-chord.mp3' },
-  { id: 'sfx_009', name: 'Interface Click', tags: ['ui', 'click', 'button'], tone: ['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational'], previewUrl: '/sounds/interface-click.mp3' },
-  { id: 'sfx_010', name: 'Magic Wand Sparkle', tags: ['magic', 'sparkle', 'fantasy'], tone: ['Inspirational', 'Comedic'], previewUrl: '/sounds/magic-wand-sparkle.mp3' },
 ];
 
 export const mockAISuggestions: SoundEffectInstance[] = [
