@@ -18,8 +18,8 @@ export const mockSoundEffectsLibrary: SoundEffect[] = [
   { id: 'sfx_006', name: 'Heartbeat', tags: ['heart', 'pulse', 'tense'], tone: ['Suspenseful', 'Dramatic'], previewUrl: '/sounds/heartbeat.mp3' },
   { id: 'sfx_007', name: 'Record Scratch', tags: ['stop', 'interrupt', 'funny'], tone: ['Comedic'], previewUrl: '/sounds/record-scratch.mp3' },
   { id: 'sfx_008', name: 'Inspiring Piano Chord', tags: ['piano', 'hopeful', 'positive'], tone: ['Inspirational'], previewUrl: '/sounds/inspiring-chord.mp3' },
-  { id: 'sfx_009', name: 'Interface Click', tags: ['ui', 'click', 'button'], tone: ['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational'], previewUrl: '/sounds/interface-click.mp3' }, // Generic click
-  { id: 'sfx_010', name: 'Magic Wand Sparkle', tags: ['magic', 'sparkle', 'fantasy'], tone: ['Inspirational', 'Comedic'], previewUrl: '/sounds/magic-sparkle.mp3' },
+  { id: 'sfx_009', name: 'Interface Click', tags: ['ui', 'click', 'button'], tone: ['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational'], previewUrl: '/sounds/interface-click.mp3' },
+  { id: 'sfx_010', name: 'Magic Wand Sparkle', tags: ['magic', 'sparkle', 'fantasy'], tone: ['Inspirational', 'Comedic'], previewUrl: '/sounds/magic-wand-sparkle.mp3' },
 ];
 
 export const mockAISuggestions: SoundEffectInstance[] = [
