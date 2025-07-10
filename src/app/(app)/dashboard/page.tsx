@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ProjectCard } from '@/components/dashboard/project-card';
 import { OnboardingModal } from '@/components/modals/onboarding-modal';
 import type { Project, SoundEffectInstance } from '@/lib/types';
-import { PlusCircle, LayoutGrid, List, Database } from 'lucide-react';
+import { PlusCircle, LayoutGrid, List } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,8 +21,6 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { mockProjects, mockSoundEffectsLibrary } from '@/lib/mock-data';
 import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
-import { toast } from '@/hooks/use-toast';
-import algoliasearch from 'algoliasearch/lite';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -32,7 +30,6 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [processingProjects, setProcessingProjects] = useState<Set<string>>(new Set());
-  const [isIndexing, setIsIndexing] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -40,14 +37,11 @@ export default function DashboardPage() {
   useEffect(() => {
     try {
       const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      console.log('DashboardPage: Read from localStorage:', storedProjectsRaw); // DEBUG LOG
       if (storedProjectsRaw) {
         const parsedProjects = JSON.parse(storedProjectsRaw);
-        console.log('DashboardPage: Parsed projects:', parsedProjects); // DEBUG LOG
         setProjects(parsedProjects);
       } else {
         // First time load, seed with mock data from the file
-        console.log('DashboardPage: No projects in localStorage, seeding with mock data.'); // DEBUG LOG
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockProjects));
         setProjects(mockProjects);
       }
@@ -68,65 +62,12 @@ export default function DashboardPage() {
   const updateProjects = (updatedProjects: Project[]) => {
     setProjects(updatedProjects);
     try {
-      console.log('DashboardPage: Updating projects in localStorage (e.g., on delete/update).'); // DEBUG LOG
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
     } catch (error) {
       console.error("Failed to update projects in localStorage:", error);
     }
   };
   
-  const handleIndexAlgolia = async () => {
-    setIsIndexing(true);
-    toast({ title: 'Algolia Indexing Started', description: 'Populating the sound effect library...' });
-  
-    // WARNING: This requires exposing the Admin API key on the client, which is NOT SAFE FOR PRODUCTION.
-    // This is acceptable only for this temporary, local-only solution.
-    // In a real app, this would be a secure backend function.
-    const algoliaAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
-    const algoliaAdminApiKey = process.env.NEXT_PUBLIC_ALGOLIA_ADMIN_API_KEY; // Corrected to use NEXT_PUBLIC_
-    const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
-    
-    if (!algoliaAppId || !algoliaAdminApiKey || !algoliaIndexName) {
-        toast({ title: 'Algolia Keys Missing', description: 'Please add Algolia keys to your .env file.', variant: 'destructive' });
-        setIsIndexing(false);
-        return;
-    }
-    
-    try {
-      // Initialize the full client here, as we need admin rights for indexing.
-      // This is different from the search-only client used in the editor.
-      const client = algoliasearch(algoliaAppId, algoliaAdminApiKey);
-      const index = client.initIndex(algoliaIndexName);
-      
-      const records = mockSoundEffectsLibrary.map((effect) => ({
-          ...effect,
-          objectID: effect.id,
-      }));
-  
-      // 1. Clear the index
-      // The `clearObjects` method returns a task object. We need to wait for the task to complete.
-      await index.clearObjects().wait();
-  
-      // 2. Add new records
-      // The `saveObjects` method also returns a task object.
-      await index.saveObjects(records).wait();
-  
-      // 3. Set index settings
-      // The `setSettings` method also returns a task object.
-      await index.setSettings({
-          searchableAttributes: ['name', 'tags', 'unordered(name)', 'unordered(tags)'],
-          attributesForFaceting: ['filterOnly(tone)'],
-      }).wait();
-  
-      toast({ title: 'Indexing Complete!', description: 'Your sound library is ready to be searched.' });
-    } catch (error) {
-        console.error('Error during client-side Algolia indexing:', error);
-        toast({ title: 'Indexing Failed', description: 'Could not populate Algolia. Check console for details.', variant: 'destructive' });
-    } finally {
-        setIsIndexing(false);
-    }
-  };
-
   // This effect simulates a background worker queue for AI processing.
   useEffect(() => {
     const projectsToProcess = projects.filter(
@@ -203,11 +144,6 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Manage your audio projects.</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Temporary button for Algolia indexing */}
-          <Button variant="outline" onClick={handleIndexAlgolia} disabled={isIndexing}>
-            <Database className="mr-2 h-4 w-4" />
-            {isIndexing ? 'Indexing...' : 'Index Data in Algolia'}
-          </Button>
           <Button asChild>
             <Link href="/projects/new">
               <PlusCircle className="mr-2 h-5 w-5" />
