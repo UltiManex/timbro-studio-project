@@ -20,7 +20,7 @@ export default function NewProjectPage() {
   const [isModalOpen, setIsModalOpen] = useState(true); // Open modal by default
   const router = useRouter();
 
-  const handleProjectCreated = async (project: Project, audioFile: File) => {
+  const handleProjectCreated = async (project: Omit<Project, 'audioUrl'>, audioFile: File) => {
     try {
       if (!storage) {
         throw new Error("Firebase Storage is not configured. Please check your .env file.");

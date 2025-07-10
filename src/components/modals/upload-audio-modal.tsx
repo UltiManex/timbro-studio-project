@@ -38,7 +38,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 interface UploadAudioModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onProjectCreated: (project: Project, audioFile: File) => Promise<void>;
+  onProjectCreated: (project: Omit<Project, 'audioUrl'>, audioFile: File) => Promise<void>;
 }
 
 const fileToDataUri = (file: File): Promise<string> => {
@@ -144,7 +144,7 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     }
 
     // Create the project object with a 'Processing' status.
-    const newProject: Project = {
+    const newProject: Omit<Project, 'audioUrl'> = {
       id: `proj_${Date.now()}`,
       name: data.projectName,
       date: new Date().toISOString(),
@@ -169,12 +169,12 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     }
     
     setIsCreating(false);
-    onOpenChange(false);
+    // onOpenChange(false); // This is handled by the parent page now.
     form.reset();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!isCreating) { onOpenChange(open); if (!open) form.reset(); } }}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!isCreating) { onOpenChange(open); if (!open) router.replace('/dashboard'); } }}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-2xl font-headline">Create New Project</DialogTitle>
