@@ -19,6 +19,7 @@ import { Slider } from '@/components/ui/slider';
 import { InstantSearch, SearchBox, Hits, Configure, Hit } from 'react-instantsearch-hooks-web';
 import algoliasearch from 'algoliasearch/lite';
 import { cn } from '@/lib/utils';
+import { generateWaveform } from '@/lib/waveform';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -79,6 +80,7 @@ export default function ProjectEditPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [filterTone, setFilterTone] = useState<Tone | 'All'>('All');
   const [isExporting, setIsExporting] = useState(false);
+  const [waveform, setWaveform] = useState<number[]>([]);
   
   const audioDuration = project?.duration || 0; 
   const effects = project?.effects || [];
@@ -97,6 +99,9 @@ export default function ProjectEditPage() {
 
       if (foundProject) {
         setProject(foundProject);
+        if (foundProject.audioDataUri) {
+          generateWaveform(foundProject.audioDataUri).then(setWaveform);
+        }
       } else {
         toast({ title: "Project not found", variant: "destructive" });
         router.push('/dashboard');
@@ -299,7 +304,7 @@ export default function ProjectEditPage() {
     }
 
     updateSelectedEffect({ effectId: effectId });
-    toast({ title: "Effect assigned", description: "The effect has been assigned to the marker." });
+    toast({ title: "Effect assigned", description: `The effect "${effect.name}" has been assigned to the marker.` });
   };
   
   const handleSaveProject = () => {
@@ -406,11 +411,14 @@ export default function ProjectEditPage() {
             </CardHeader>
             <CardContent>
               <div ref={waveformRef} onClick={handleWaveformClick} className="h-32 bg-muted rounded-md relative cursor-crosshair flex items-center overflow-hidden" aria-label="Audio waveform, click to add or select effect">
-                {/* This is a placeholder for waveform visualization */}
-                 <div className="flex items-center h-full w-full">
-                    {Array.from({ length: 200 }).map((_, i) => (
-                      <div key={i} className="flex-grow bg-primary/30 rounded-full" style={{ height: `${Math.random() * 80 + 10}%`, minWidth: '2px', marginRight: '2px' }}></div>
-                    ))}
+                 <div className="flex items-end h-full w-full gap-px">
+                    {waveform.length > 0 ? waveform.map((amp, i) => (
+                      <div key={i} className="flex-grow bg-primary/50 rounded-full" style={{ height: `${amp * 100}%` }}></div>
+                    )) : (
+                       <div className="flex items-center justify-center w-full h-full text-muted-foreground">
+                         {project.audioDataUri ? 'Generating waveform...' : 'No audio loaded'}
+                       </div>
+                    )}
                 </div>
                 {/* Playhead */}
                 {audioDuration > 0 && (
