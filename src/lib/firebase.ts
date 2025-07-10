@@ -1,5 +1,5 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApp, getApps } from "firebase/app";
 import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
@@ -22,8 +22,12 @@ const isFirebaseConfigured =
   firebaseConfig.messagingSenderId &&
   firebaseConfig.appId;
 
+if (!isFirebaseConfigured) {
+    console.warn("Firebase config is not set. Please add your Firebase credentials to .env.local. File uploads will be disabled.");
+}
+
 // Initialize Firebase
-const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
+const app = isFirebaseConfigured && !getApps().length ? initializeApp(firebaseConfig) : (isFirebaseConfigured ? getApp() : null);
 const storage = app ? getStorage(app) : null;
 
 export { app, storage, isFirebaseConfigured };
