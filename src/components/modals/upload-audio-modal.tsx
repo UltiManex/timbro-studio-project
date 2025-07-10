@@ -38,7 +38,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 interface UploadAudioModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onProjectCreated: (project: Project, audioFile: File) => void;
+  onProjectCreated: (project: Project, audioFile: File) => Promise<void>;
 }
 
 const fileToDataUri = (file: File): Promise<string> => {
@@ -169,7 +169,7 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
             <Terminal className="h-4 w-4" />
             <AlertTitle>Firebase Not Configured</AlertTitle>
             <AlertDescription>
-              Firebase Storage is not set up. Please add your Firebase configuration to your <code>.env</code> file to enable file uploads.
+              Firebase Storage is not set up. Please add your Firebase configuration to your <code>.env.local</code> file to enable file uploads.
             </AlertDescription>
           </Alert>
         )}

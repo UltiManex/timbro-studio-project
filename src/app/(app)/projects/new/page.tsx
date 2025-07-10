@@ -42,10 +42,12 @@ export default function NewProjectPage() {
       }
 
       // 4. Create the final project object for storage
+      // The audioDataUri is intentionally left on the object passed to the onProjectCreated callback
+      // but removed from the object saved to localStorage.
       const projectToStore: Project = {
         ...project,
         audioUrl: downloadURL, // Add the permanent URL
-        audioDataUri: undefined, // Remove the temporary data URI
+        audioDataUri: undefined, // Remove the temporary data URI before saving to localStorage
       };
 
       // Add new project to the start of the list
