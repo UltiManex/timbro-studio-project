@@ -16,7 +16,7 @@ import { mockSoundEffectsLibrary } from '@/lib/mock-data';
 import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2 } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
 import { Slider } from '@/components/ui/slider';
-import { InstantSearch, SearchBox, Hits, Configure, Hit } from 'react-instantsearch-hooks-web';
+import { InstantSearch, SearchBox, Hits, Configure, useInstantSearch } from 'react-instantsearch-hooks-web';
 import algoliasearch from 'algoliasearch/lite';
 import { cn } from '@/lib/utils';
 import { generateWaveform } from '@/lib/waveform';
@@ -38,7 +38,7 @@ interface AlgoliaSoundEffectHit extends SoundEffect {
 }
 
 interface SoundEffectHitComponentProps {
-  hit: Hit<AlgoliaSoundEffectHit>;
+  hit: AlgoliaSoundEffectHit;
   onSelect: (effect: SoundEffect) => void;
   onPreview: (previewUrl: string, effectName: string) => void;
 }
@@ -66,6 +66,14 @@ function SoundEffectHitItem({ hit, onSelect, onPreview }: SoundEffectHitComponen
       </div>
     </div>
   );
+}
+
+function NoResultsBoundary({ children, fallback }: { children: React.ReactNode, fallback: React.ReactNode }) {
+  const { results } = useInstantSearch();
+  if (!results.__isArtificial && results.nbHits === 0) {
+    return fallback;
+  }
+  return <>{children}</>;
 }
 
 
@@ -304,7 +312,7 @@ export default function ProjectEditPage() {
     }
 
     updateSelectedEffect({ effectId: effectId });
-    toast({ title: "Effect assigned", description: `The effect "${effect.name}" has been assigned to the marker.` });
+    toast({ title: `Effect Assigned: ${effect.name}` });
   };
   
   const handleSaveProject = () => {
@@ -349,7 +357,10 @@ export default function ProjectEditPage() {
                 </CardHeader>
                 <CardContent>
                     <p className="text-muted-foreground">
-                        Please ensure <code>NEXT_PUBLIC_ALGOLIA_APP_ID</code> and <code>NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY</code> are set in your <code>.env</code> file.
+                        Please set up an Algolia account and add your keys to the <code>.env</code> file.
+                    </p>
+                    <p className="text-sm mt-2 text-muted-foreground">
+                      You'll need <code>NEXT_PUBLIC_ALGOLIA_APP_ID</code> and <code>NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY</code>.
                     </p>
                 </CardContent>
             </Card>
@@ -527,7 +538,7 @@ export default function ProjectEditPage() {
           <InstantSearch
             searchClient={searchClient}
             indexName={algoliaIndexName}
-            insights={false} // Consider enabling insights in production if you use Algolia analytics
+            insights={false} 
           >
             <Card className="flex-1 overflow-hidden">
               <CardHeader>
@@ -543,7 +554,7 @@ export default function ProjectEditPage() {
                         input: 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-8', // Added pl-8 for icon
                         submitIcon: 'absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground',
                         resetIcon: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer',
-                        loadingIndicator: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground', // Example
+                        loadingIndicator: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground',
                       }}
                     />
                   </div>
@@ -563,17 +574,19 @@ export default function ProjectEditPage() {
                 </div>
               </CardHeader>
               <CardContent className="h-full pb-6">
-                <ScrollArea className="h-[calc(100%-2rem)] pr-2"> {/* Adjust height based on header/footer */}
+                <ScrollArea className="h-[calc(100%-2rem)] pr-2">
                   <ul className="space-y-1">
-                    <Hits<AlgoliaSoundEffectHit> 
-                      hitComponent={(props) => 
-                        <SoundEffectHitItem 
-                          hit={props.hit}
-                          onSelect={handleSelectSoundForInstance}
-                          onPreview={handlePreviewEffect}
-                        />
-                      } 
-                    />
+                    <NoResultsBoundary fallback={<p className="text-center text-sm text-muted-foreground p-4">No effects found.</p>}>
+                      <Hits<AlgoliaSoundEffectHit>
+                        hitComponent={(props) =>
+                          <SoundEffectHitItem
+                            hit={props.hit}
+                            onSelect={handleSelectSoundForInstance}
+                            onPreview={handlePreviewEffect}
+                          />
+                        }
+                      />
+                    </NoResultsBoundary>
                   </ul>
                 </ScrollArea>
               </CardContent>
