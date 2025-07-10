@@ -8,12 +8,17 @@ import type { Project } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { v4 as uuidv4 } from 'uuid'; // To get file extension
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
 // Initialize the global store if it doesn't exist.
 if (typeof window !== 'undefined' && !(window as any).newProjectAudioStore) {
   (window as any).newProjectAudioStore = {};
+}
+
+const getFileExtension = (filename: string) => {
+  return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 2);
 }
 
 export default function NewProjectPage() {
@@ -25,8 +30,11 @@ export default function NewProjectPage() {
       if (!storage) {
         throw new Error("Firebase Storage is not configured. Please check your .env file.");
       }
-      // 1. Upload the audio file to Firebase Storage
-      const storageRef = ref(storage, `uploads/${project.id}/${audioFile.name}`);
+      
+      const fileExtension = getFileExtension(audioFile.name) || 'mp3';
+      
+      // 1. Upload the audio file to Firebase Storage with a standardized name
+      const storageRef = ref(storage, `uploads/${project.id}/audio.${fileExtension}`);
       await uploadBytes(storageRef, audioFile);
       const downloadURL = await getDownloadURL(storageRef);
 
