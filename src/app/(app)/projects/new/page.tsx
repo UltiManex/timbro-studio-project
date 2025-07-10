@@ -26,6 +26,36 @@ export default function NewProjectPage() {
   const router = useRouter();
 
   const handleProjectCreated = async (project: Omit<Project, 'audioUrl'>, audioFile: File) => {
+     // --- FIX START: Save project to local storage BEFORE the upload attempt ---
+    
+    // 1. Get existing projects from storage
+    const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const storedProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
+    
+    // 2. Place the temporary audio data URI for immediate AI processing
+    if (project.audioDataUri) {
+       if (typeof window !== 'undefined') {
+          (window as any).newProjectAudioStore[project.id] = project.audioDataUri;
+       }
+    }
+
+    // 3. Create the project object for storage, initially without the final audioUrl
+    const projectToStore: Project = {
+      ...project,
+      audioUrl: '', // This will be updated after upload
+      audioDataUri: undefined, // Remove the temporary data URI before saving
+    };
+
+    // 4. Add new project to the start of the list and save immediately
+    const updatedProjects = [projectToStore, ...storedProjects];
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
+
+    toast({
+      title: "Project Created!",
+      description: `'${project.name}' is now being processed. Check the dashboard for status.`,
+    });
+
+    // --- UPLOAD LOGIC (Now runs after saving, can fail gracefully) ---
     try {
       if (!storage) {
         throw new Error("Firebase Storage is not configured. Please check your .env file.");
@@ -33,49 +63,34 @@ export default function NewProjectPage() {
       
       const fileExtension = getFileExtension(audioFile.name) || 'mp3';
       
-      // 1. Upload the audio file to Firebase Storage with a standardized name
+      // Upload the audio file to Firebase Storage with a standardized name
       const storageRef = ref(storage, `uploads/${project.id}/audio.${fileExtension}`);
-      await uploadBytes(storageRef, audioFile);
-      const downloadURL = await getDownloadURL(storageRef);
+      const uploadResult = await uploadBytes(storageRef, audioFile);
+      const downloadURL = await getDownloadURL(uploadResult.ref);
 
-      // 2. Get existing projects from storage
-      const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      const storedProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
+      // Now, find the project we just saved and update it with the final downloadURL
+      const finalProjects = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]') as Project[];
+      const projectIndex = finalProjects.findIndex(p => p.id === project.id);
       
-      // 3. Place the temporary audio data URI for immediate processing
-      if (project.audioDataUri) {
-         if (typeof window !== 'undefined') {
-            (window as any).newProjectAudioStore[project.id] = project.audioDataUri;
-         }
+      if (projectIndex !== -1) {
+        finalProjects[projectIndex].audioUrl = downloadURL;
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalProjects));
       }
 
-      // 4. Create the final project object for storage
-      // The audioDataUri is intentionally left on the object passed to the onProjectCreated callback
-      // but removed from the object saved to localStorage.
-      const projectToStore: Project = {
-        ...project,
-        audioUrl: downloadURL, // Add the permanent URL
-        audioDataUri: undefined, // Remove the temporary data URI before saving to localStorage
-      };
-
-      // Add new project to the start of the list
-      const updatedProjects = [projectToStore, ...storedProjects];
-
-      // Save back to storage
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
-
-       toast({
-        title: "Project Created!",
-        description: `'${project.name}' is now being processed. Check the dashboard for status.`,
-      });
-
     } catch (error: any) {
-      console.error("Failed to create project:", error);
+      console.error("Failed to upload file to Firebase:", error);
        toast({
-        title: "Error creating project",
-        description: error.message || "Could not save the new project.",
+        title: "Upload Failed",
+        description: error.message || "Could not upload the audio file.",
         variant: "destructive"
       });
+      // Also update the project status to 'Error' in local storage
+      const finalProjects = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]') as Project[];
+      const projectIndex = finalProjects.findIndex(p => p.id === project.id);
+      if (projectIndex !== -1) {
+        finalProjects[projectIndex].status = 'Error';
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalProjects));
+      }
     }
     
     // Trigger navigation by closing the modal
