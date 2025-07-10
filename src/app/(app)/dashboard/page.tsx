@@ -24,6 +24,12 @@ import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
+// This is a temporary, in-memory store for audio data of newly created projects.
+// In a real app, this would be handled by a global state manager (like Zustand or Redux)
+// or by uploading the file to a server immediately.
+const newProjectAudioStore: { [projectId: string]: string } = {};
+
+
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
@@ -62,7 +68,9 @@ export default function DashboardPage() {
   const updateProjects = (updatedProjects: Project[]) => {
     setProjects(updatedProjects);
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
+      // Don't save audioDataUri to localStorage
+      const projectsToStore = updatedProjects.map(({ audioDataUri, ...rest }) => rest);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(projectsToStore));
     } catch (error) {
       console.error("Failed to update projects in localStorage:", error);
     }
@@ -78,17 +86,21 @@ export default function DashboardPage() {
       projectsToProcess.forEach(async (project) => {
         // Flag this project as being processed to avoid duplicate runs
         setProcessingProjects(prev => new Set(prev).add(project.id));
-
+        
+        // Retrieve the audio data URI from the in-memory store
+        const audioDataUri = newProjectAudioStore[project.id] || project.audioDataUri;
+        
         try {
           let aiSuggestions: SoundEffectInstance[] = [];
           let transcript = project.transcript || '';
           
-          if (!project.audioDataUri) {
-            throw new Error("Project is missing audio data for AI processing.");
+          if (!audioDataUri) {
+             // If data is not found, mark as error. This can happen on page reload.
+             throw new Error(`Project ${project.id} is marked for processing, but its audio data is not available. Please re-upload.`);
           }
 
           const aiResponse = await suggestSoundEffects({
-            audioDataUri: project.audioDataUri,
+            audioDataUri: audioDataUri,
             selectedTone: project.selectedTone,
             availableEffects: mockSoundEffectsLibrary.map(({ previewUrl, ...rest }) => rest),
             audioDuration: project.duration || 60,
@@ -106,20 +118,24 @@ export default function DashboardPage() {
           // Update the project in the main state and localStorage
           const updatedProjects = projects.map(p =>
             p.id === project.id
-              ? { ...p, status: 'Ready for Review', effects: aiSuggestions, transcript: transcript } // Keep data URI for editor
+              ? { ...p, status: 'Ready for Review', effects: aiSuggestions, transcript: transcript, audioDataUri: audioDataUri }
               : p
           );
           updateProjects(updatedProjects);
+          // Clean up the in-memory store
+          delete newProjectAudioStore[project.id];
 
         } catch (e) {
           console.error(`AI processing failed for project ${project.id}:`, e);
           // Update the project to an 'Error' state
           const updatedProjects = projects.map(p =>
             p.id === project.id
-              ? { ...p, status: 'Error', audioDataUri: undefined } // Clear data URI on error
+              ? { ...p, status: 'Error' }
               : p
           );
           updateProjects(updatedProjects);
+           // Clean up the in-memory store
+          delete newProjectAudioStore[project.id];
         }
       });
     }

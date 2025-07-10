@@ -106,6 +106,17 @@ export default function ProjectEditPage() {
       const foundProject = allProjects.find((p: Project) => p.id === projectId);
 
       if (foundProject) {
+        // If audioDataUri is missing (because it's not stored in localStorage anymore),
+        // we can't do much in the editor. This is a limitation of the current design.
+        // A real app would fetch this from a server. For now, we show a message.
+        if (!foundProject.audioDataUri) {
+          toast({
+            title: "Audio Data Missing",
+            description: "The audio for this project can't be loaded because you may have refreshed the page. Please start a new project.",
+            variant: "destructive",
+            duration: 10000,
+          });
+        }
         setProject(foundProject);
         if (foundProject.audioDataUri) {
           generateWaveform(foundProject.audioDataUri).then(setWaveform);
@@ -135,7 +146,9 @@ export default function ProjectEditPage() {
       const projectIndex = allProjects.findIndex((p: Project) => p.id === projectId);
 
       if (projectIndex !== -1) {
-        allProjects[projectIndex] = updatedProject;
+        // Exclude audioDataUri from localStorage
+        const { audioDataUri, ...projectToStore } = updatedProject;
+        allProjects[projectIndex] = projectToStore;
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allProjects));
       }
     } catch (error) {

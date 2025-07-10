@@ -18,10 +18,12 @@ export default function NewProjectPage() {
       const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
       const storedProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
       
-      // Add new project to the start of the list
-      const updatedProjects = [project, ...storedProjects];
+      // IMPORTANT: Do not save the large audioDataUri to localStorage to avoid exceeding storage limits.
+      // The dashboard page will handle the processing in-memory.
+      const { audioDataUri, ...projectToStore } = project;
 
-      console.log('NewProjectPage: Saving projects to localStorage:', updatedProjects); // DEBUG LOG
+      // Add new project (without audio data) to the start of the list
+      const updatedProjects = [projectToStore, ...storedProjects];
 
       // Save back to storage
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
@@ -30,6 +32,13 @@ export default function NewProjectPage() {
         title: "Project Created!",
         description: `'${project.name}' is now being processed. Check the dashboard for status.`,
       });
+      
+      // A more robust solution might use sessionStorage or a state manager
+      // to pass the audioDataUri to the dashboard for processing.
+      // For now, the dashboard's useEffect will see a "Processing" project
+      // but won't be able to act on it without the data URI.
+      // Let's rely on the user navigating to the editor where the URI would be needed.
+      // The dashboard processing logic will need to be adapted.
 
     } catch (error) {
       console.error("Failed to save project to localStorage", error);
