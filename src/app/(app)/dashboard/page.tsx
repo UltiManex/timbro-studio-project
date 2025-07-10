@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ProjectCard } from '@/components/dashboard/project-card';
 import { OnboardingModal } from '@/components/modals/onboarding-modal';
 import type { Project, SoundEffectInstance } from '@/lib/types';
-import { PlusCircle, LayoutGrid, List, Database, Loader2 } from 'lucide-react';
+import { PlusCircle, LayoutGrid, List } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,8 +21,6 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { mockProjects, mockSoundEffectsLibrary } from '@/lib/mock-data';
 import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
-import algoliasearch from 'algoliasearch';
-import { toast } from '@/hooks/use-toast';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -32,7 +30,6 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [processingProjects, setProcessingProjects] = useState<Set<string>>(new Set());
-  const [isIndexing, setIsIndexing] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -60,57 +57,6 @@ export default function DashboardPage() {
       setIsOnboardingModalOpen(true);
     }
   }, [searchParams]);
-
-  const handleIndexData = async () => {
-    setIsIndexing(true);
-    toast({ title: 'Starting Algolia Indexing...', description: 'Please wait while we update the sound library.' });
-
-    const appId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
-    const adminKey = process.env.NEXT_PUBLIC_ALGOLIA_ADMIN_API_KEY;
-    const indexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
-
-    if (!appId || !adminKey || !indexName) {
-      toast({
-        title: 'Algolia Keys Missing',
-        description: 'Please ensure NEXT_PUBLIC_ALGOLIA_APP_ID, NEXT_PUBLIC_ALGOLIA_ADMIN_API_KEY, and NEXT_PUBLIC_ALGOLIA_INDEX_NAME are in your .env file.',
-        variant: 'destructive',
-      });
-      setIsIndexing(false);
-      return;
-    }
-
-    try {
-      const client = algoliasearch(appId, adminKey);
-      const index = client.initIndex(indexName);
-
-      const records = mockSoundEffectsLibrary.map((effect) => ({
-        ...effect,
-        objectID: effect.id,
-      }));
-
-      await index.clearObjects();
-      await index.saveObjects(records);
-      await index.setSettings({
-        searchableAttributes: ['name', 'tags', 'unordered(name)', 'unordered(tags)'],
-        attributesForFaceting: ['filterOnly(tone)'],
-      });
-
-      toast({
-        title: 'Indexing Complete!',
-        description: `Successfully uploaded ${records.length} sound effects to Algolia.`,
-        variant: 'default',
-      });
-    } catch (error) {
-      console.error('Error during Algolia indexing:', error);
-      toast({
-        title: 'Indexing Failed',
-        description: 'There was an error connecting to Algolia. Check console for details.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsIndexing(false);
-    }
-  };
 
   // Helper function to update projects in both state and localStorage
   const updateProjects = (updatedProjects: Project[]) => {
@@ -198,10 +144,6 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Manage your audio projects.</p>
         </div>
         <div className="flex items-center gap-2">
-           <Button onClick={handleIndexData} disabled={isIndexing} variant="outline">
-            {isIndexing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Database className="mr-2 h-5 w-5" />}
-            Index Data in Algolia
-          </Button>
           <Button asChild>
             <Link href="/projects/new">
               <PlusCircle className="mr-2 h-5 w-5" />
