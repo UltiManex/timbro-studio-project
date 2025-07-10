@@ -114,6 +114,16 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     setIsCreating(true);
 
     const uploadedFile = data.audioFile[0];
+    if (!uploadedFile) {
+      toast({
+        title: "File Error",
+        description: "No audio file found. Please select a file and try again.",
+        variant: "destructive"
+      });
+      setIsCreating(false);
+      return;
+    }
+
     let audioDataUri;
     let audioDuration;
 
@@ -149,7 +159,14 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
       transcript: "Processing transcript...", 
     };
 
-    await onProjectCreated(newProject, uploadedFile);
+    try {
+      await onProjectCreated(newProject, uploadedFile);
+    } catch(e) {
+      // The onProjectCreated function already shows a toast on error
+      // but we need to stop the loading state here.
+      setIsCreating(false);
+      return;
+    }
     
     setIsCreating(false);
     onOpenChange(false);
