@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { mockProjects, mockSoundEffectsLibrary } from '@/lib/mock-data';
 import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
 import { toast } from '@/hooks/use-toast';
+import algoliasearch from 'algoliasearch/lite';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -77,11 +78,12 @@ export default function DashboardPage() {
   const handleIndexAlgolia = async () => {
     setIsIndexing(true);
     toast({ title: 'Algolia Indexing Started', description: 'Populating the sound effect library...' });
-
-    // This requires exposing the Admin API key on the client, which is NOT SAFE FOR PRODUCTION.
+  
+    // WARNING: This requires exposing the Admin API key on the client, which is NOT SAFE FOR PRODUCTION.
     // This is acceptable only for this temporary, local-only solution.
+    // In a real app, this would be a secure backend function.
     const algoliaAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
-    const algoliaAdminApiKey = process.env.NEXT_PUBLIC_ALGOLIA_ADMIN_API_KEY; // Using the Admin key on client - NOT FOR PRODUCTION
+    const algoliaAdminApiKey = process.env.NEXT_PUBLIC_ALGOLIA_ADMIN_API_KEY; // Corrected to use NEXT_PUBLIC_
     const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
     
     if (!algoliaAppId || !algoliaAdminApiKey || !algoliaIndexName) {
@@ -91,41 +93,32 @@ export default function DashboardPage() {
     }
     
     try {
-        // We use the fetch API to interact with Algolia's REST API.
-        const records = mockSoundEffectsLibrary.map((effect) => ({
-            ...effect,
-            objectID: effect.id,
-        }));
-
-        const headers = { 
-            'X-Algolia-Application-Id': algoliaAppId, 
-            'X-Algolia-API-Key': algoliaAdminApiKey 
-        };
-
-        // 1. Clear the index
-        await fetch(`https://${algoliaAppId}.algolia.net/1/indexes/${algoliaIndexName}/clear`, {
-            method: 'POST',
-            headers,
-        });
-
-        // 2. Add new records
-        await fetch(`https://${algoliaAppId}.algolia.net/1/indexes/${algoliaIndexName}/batch`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ requests: records.map(r => ({ action: 'addObject', body: r })) }),
-        });
-
-        // 3. Set index settings
-        await fetch(`https://${algoliaAppId}.algolia.net/1/indexes/${algoliaIndexName}/settings`, {
-             method: 'PUT',
-             headers,
-             body: JSON.stringify({
-                searchableAttributes: ['name', 'tags', 'unordered(name)', 'unordered(tags)'],
-                attributesForFaceting: ['filterOnly(tone)'],
-             }),
-        });
-
-        toast({ title: 'Indexing Complete!', description: 'Your sound library is ready to be searched.' });
+      // Initialize the full client here, as we need admin rights for indexing.
+      // This is different from the search-only client used in the editor.
+      const client = algoliasearch(algoliaAppId, algoliaAdminApiKey);
+      const index = client.initIndex(algoliaIndexName);
+      
+      const records = mockSoundEffectsLibrary.map((effect) => ({
+          ...effect,
+          objectID: effect.id,
+      }));
+  
+      // 1. Clear the index
+      // The `clearObjects` method returns a task object. We need to wait for the task to complete.
+      await index.clearObjects().wait();
+  
+      // 2. Add new records
+      // The `saveObjects` method also returns a task object.
+      await index.saveObjects(records).wait();
+  
+      // 3. Set index settings
+      // The `setSettings` method also returns a task object.
+      await index.setSettings({
+          searchableAttributes: ['name', 'tags', 'unordered(name)', 'unordered(tags)'],
+          attributesForFaceting: ['filterOnly(tone)'],
+      }).wait();
+  
+      toast({ title: 'Indexing Complete!', description: 'Your sound library is ready to be searched.' });
     } catch (error) {
         console.error('Error during client-side Algolia indexing:', error);
         toast({ title: 'Indexing Failed', description: 'Could not populate Algolia. Check console for details.', variant: 'destructive' });
@@ -287,5 +280,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    
