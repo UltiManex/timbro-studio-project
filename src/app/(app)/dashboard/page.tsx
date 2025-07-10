@@ -24,11 +24,6 @@ import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
-// This is a temporary, in-memory store for audio data of newly created projects.
-// In a real app, this would be handled by a global state manager (like Zustand or Redux)
-// or by uploading the file to a server immediately.
-const newProjectAudioStore: { [projectId: string]: string } = {};
-
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -87,8 +82,9 @@ export default function DashboardPage() {
         // Flag this project as being processed to avoid duplicate runs
         setProcessingProjects(prev => new Set(prev).add(project.id));
         
-        // Retrieve the audio data URI from the in-memory store
-        const audioDataUri = newProjectAudioStore[project.id] || project.audioDataUri;
+        // Retrieve the audio data URI from the global in-memory store
+        const newProjectAudioStore = (window as any).newProjectAudioStore || {};
+        const audioDataUri = newProjectAudioStore[project.id];
         
         try {
           let aiSuggestions: SoundEffectInstance[] = [];
@@ -114,14 +110,18 @@ export default function DashboardPage() {
               id: `ai_inst_${Date.now()}_${Math.random()}`
             }));
           }
+          
+          // Create a new version of the project that includes the audioDataUri for the editor
+          const projectWithAudio = { ...project, status: 'Ready for Review', effects: aiSuggestions, transcript: transcript, audioDataUri: audioDataUri };
 
           // Update the project in the main state and localStorage
           const updatedProjects = projects.map(p =>
             p.id === project.id
-              ? { ...p, status: 'Ready for Review', effects: aiSuggestions, transcript: transcript, audioDataUri: audioDataUri }
+              ? projectWithAudio
               : p
           );
           updateProjects(updatedProjects);
+          
           // Clean up the in-memory store
           delete newProjectAudioStore[project.id];
 
@@ -139,7 +139,8 @@ export default function DashboardPage() {
         }
       });
     }
-  }, [projects, processingProjects]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects]);
 
   const handleDeleteProject = (projectId: string) => {
     const updatedProjectsList = projects.filter(p => p.id !== projectId);
