@@ -25,7 +25,7 @@ const LOCAL_STORAGE_KEY = 'timbro-projects';
 
 const algoliaAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID || '';
 const algoliaSearchApiKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY || '';
-const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME || 'sound_effects';
+const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME || ''; // Intentionally leave blank to force check
 
 const searchClient = algoliasearch(algoliaAppId, algoliaSearchApiKey);
 
@@ -312,7 +312,7 @@ export default function ProjectEditPage() {
     }
 
     updateSelectedEffect({ effectId: effectId });
-    toast({ title: `Effect Assigned: ${effect.name}` });
+    toast({ title: `Assigned '${effect.name || "effect"}' to the marker.` });
   };
   
   const handleSaveProject = () => {
@@ -348,7 +348,7 @@ export default function ProjectEditPage() {
   
   const currentEffectDetails = selectedEffectInstance ? mockSoundEffectsLibrary.find(libSfx => libSfx.id === selectedEffectInstance.effectId) : null;
 
-  if (!algoliaAppId || !algoliaSearchApiKey) {
+  if (!algoliaAppId || !algoliaSearchApiKey || !algoliaIndexName) {
      return (
         <div className="flex flex-col items-center justify-center h-[calc(100vh-theme(spacing.28))] p-4">
             <Card className="w-full max-w-md text-center">
@@ -357,10 +357,13 @@ export default function ProjectEditPage() {
                 </CardHeader>
                 <CardContent>
                     <p className="text-muted-foreground">
-                        Please set up an Algolia account and add your keys to the <code>.env</code> file.
+                        The sound library is disabled. Please set up an Algolia account and add your keys to the <code>.env</code> file.
                     </p>
                     <p className="text-sm mt-2 text-muted-foreground">
-                      You'll need <code>NEXT_PUBLIC_ALGOLIA_APP_ID</code> and <code>NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY</code>.
+                      You'll need <code>NEXT_PUBLIC_ALGOLIA_APP_ID</code>, <code>NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY</code>, and <code>NEXT_PUBLIC_ALGOLIA_INDEX_NAME</code>.
+                    </p>
+                    <p className="text-sm mt-4 text-muted-foreground">
+                      After adding the keys, run the indexing command from the dashboard.
                     </p>
                 </CardContent>
             </Card>

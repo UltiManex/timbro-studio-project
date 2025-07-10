@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ProjectCard } from '@/components/dashboard/project-card';
 import { OnboardingModal } from '@/components/modals/onboarding-modal';
 import type { Project, SoundEffectInstance } from '@/lib/types';
-import { PlusCircle, LayoutGrid, List } from 'lucide-react';
+import { PlusCircle, LayoutGrid, List, Database } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { mockProjects, mockSoundEffectsLibrary } from '@/lib/mock-data';
 import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
+import { toast } from '@/hooks/use-toast';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -29,6 +30,7 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [processingProjects, setProcessingProjects] = useState<Set<string>>(new Set());
+  const [isIndexing, setIsIndexing] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -68,6 +70,65 @@ export default function DashboardPage() {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
     } catch (error) {
       console.error("Failed to update projects in localStorage:", error);
+    }
+  };
+  
+  const handleIndexAlgolia = async () => {
+    setIsIndexing(true);
+    toast({ title: 'Algolia Indexing Started', description: 'Populating the sound effect library...' });
+
+    // We can't run the script directly, so we'll call a server action/API route if we had one.
+    // For this prototype, we'll simulate the script's logic on the client.
+    // This requires exposing the Admin API key on the client, which is NOT SAFE FOR PRODUCTION.
+    // This is acceptable only for this temporary, local-only solution.
+    const algoliaAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
+    const algoliaAdminApiKey = process.env.NEXT_PUBLIC_ALGOLIA_ADMIN_API_KEY; // Using the Admin key on client - NOT FOR PRODUCTION
+    const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
+    
+    if (!algoliaAppId || !algoliaAdminApiKey || !algoliaIndexName) {
+        toast({ title: 'Algolia Keys Missing', description: 'Please add Algolia keys to your .env file.', variant: 'destructive' });
+        setIsIndexing(false);
+        return;
+    }
+    
+    try {
+        // Since we can't import 'algoliasearch' full module on the client easily,
+        // we'll use the fetch API to interact with Algolia's REST API.
+        const records = mockSoundEffectsLibrary.map((effect) => ({
+            ...effect,
+            objectID: effect.id,
+        }));
+
+        const client = {
+            clear: () => fetch(`https://${algoliaAppId}-dsn.algolia.net/1/indexes/${algoliaIndexName}/clear`, {
+                method: 'POST',
+                headers: { 'X-Algolia-Application-Id': algoliaAppId, 'X-Algolia-API-Key': algoliaAdminApiKey },
+            }),
+            save: () => fetch(`https://${algoliaAppId}.algolia.net/1/indexes/${algoliaIndexName}/batch`, {
+                method: 'POST',
+                headers: { 'X-Algolia-Application-Id': algoliaAppId, 'X-Algolia-API-Key': algoliaAdminApiKey },
+                body: JSON.stringify({ requests: records.map(r => ({ action: 'addObject', body: r })) }),
+            }),
+            settings: () => fetch(`https://${algoliaAppId}.algolia.net/1/indexes/${algoliaIndexName}/settings`, {
+                 method: 'PUT',
+                 headers: { 'X-Algolia-Application-Id': algoliaAppId, 'X-Algolia-API-Key': algoliaAdminApiKey },
+                 body: JSON.stringify({
+                    searchableAttributes: ['name', 'tags', 'unordered(name)', 'unordered(tags)'],
+                    attributesForFaceting: ['filterOnly(tone)'],
+                 }),
+            })
+        };
+        
+        await client.clear();
+        await client.save();
+        await client.settings();
+
+        toast({ title: 'Indexing Complete!', description: 'Your sound library is ready to be searched.' });
+    } catch (error) {
+        console.error('Error during client-side Algolia indexing:', error);
+        toast({ title: 'Indexing Failed', description: 'Could not populate Algolia. Check console for details.', variant: 'destructive' });
+    } finally {
+        setIsIndexing(false);
     }
   };
 
@@ -146,12 +207,19 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold font-headline">Dashboard</h1>
           <p className="text-muted-foreground">Manage your audio projects.</p>
         </div>
-        <Button asChild>
-          <Link href="/projects/new">
-            <PlusCircle className="mr-2 h-5 w-5" />
-            New Project
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Temporary button for Algolia indexing */}
+          <Button variant="outline" onClick={handleIndexAlgolia} disabled={isIndexing}>
+            <Database className="mr-2 h-4 w-4" />
+            {isIndexing ? 'Indexing...' : 'Index Data in Algolia'}
+          </Button>
+          <Button asChild>
+            <Link href="/projects/new">
+              <PlusCircle className="mr-2 h-5 w-5" />
+              New Project
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="mb-6 flex flex-col sm:flex-row items-center gap-4">

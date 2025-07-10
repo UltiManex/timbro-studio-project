@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { UploadAudioModal } from '@/components/modals/upload-audio-modal';
 import type { Project } from '@/lib/types';
+import { toast } from '@/hooks/use-toast';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -24,9 +25,19 @@ export default function NewProjectPage() {
 
       // Save back to storage
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedProjects));
+
+       toast({
+        title: "Project Created!",
+        description: `'${project.name}' is now being processed. Check the dashboard for status.`,
+      });
+
     } catch (error) {
       console.error("Failed to save project to localStorage", error);
-      // Handle the error, maybe show a toast to the user
+       toast({
+        title: "Error saving project",
+        description: "Could not save the new project to your browser's storage.",
+        variant: "destructive"
+      });
     }
     
     // Trigger navigation by closing the modal

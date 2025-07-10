@@ -14,7 +14,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { AVAILABLE_TONES, MAX_AUDIO_FILE_SIZE_BYTES, MAX_AUDIO_FILE_SIZE_MB, ALLOWED_AUDIO_TYPES, AVAILABLE_EFFECT_PLACEMENTS } from '@/lib/constants';
-import type { Tone, DefaultEffectPlacement } from '@/lib/types';
+import type { Tone, DefaultEffectPlacement, Project } from '@/lib/types';
 import { UploadCloud, FileAudio, X, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TrustBadgeIcon, ToneIcon } from '@/components/icons';
@@ -35,7 +35,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 interface UploadAudioModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onProjectCreated: (project: any) => void;
+  onProjectCreated: (project: Project) => void;
 }
 
 const fileToDataUri = (file: File): Promise<string> => {
@@ -48,6 +48,18 @@ const fileToDataUri = (file: File): Promise<string> => {
     reader.readAsDataURL(file);
   });
 };
+
+const getAudioDuration = (file: File): Promise<number> => {
+  return new Promise((resolve) => {
+    const audio = document.createElement('audio');
+    audio.onloadedmetadata = () => {
+      resolve(audio.duration);
+      window.URL.revokeObjectURL(audio.src);
+    };
+    audio.src = window.URL.createObjectURL(file);
+  });
+};
+
 
 export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: UploadAudioModalProps) {
   const router = useRouter();
@@ -100,10 +112,15 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
 
     const audioFile = data.audioFile[0];
     let audioDataUri;
+    let audioDuration;
+
     try {
-      audioDataUri = await fileToDataUri(audioFile);
+      [audioDataUri, audioDuration] = await Promise.all([
+        fileToDataUri(audioFile),
+        getAudioDuration(audioFile)
+      ]);
     } catch (error) {
-      console.error("Error converting file to data URI:", error);
+      console.error("Error processing audio file:", error);
       toast({
         title: "File Error",
         description: "Could not read the selected audio file. Please try again.",
@@ -114,7 +131,7 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     }
 
     // Create the project object with a 'Processing' status.
-    const newProject = {
+    const newProject: Project = {
       id: `proj_${Date.now()}`,
       name: data.projectName,
       date: new Date().toISOString(),
@@ -122,20 +139,15 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
       audioFileName: audioFile.name,
       audioFileSize: audioFile.size,
       audioDataUri: audioDataUri,
+      duration: Math.round(audioDuration), 
       selectedTone: data.selectedTone,
       defaultEffectPlacement: data.defaultEffectPlacement,
-      effects: [], // Start with empty effects
-      duration: 60, // Mock duration for now, can be extracted from audio later
+      effects: [],
       transcript: "Processing transcript...", 
     };
 
     onProjectCreated(newProject);
     
-    toast({
-      title: "Project Created!",
-      description: `'${data.projectName}' is now being processed. Check the dashboard for status.`,
-    });
-
     setIsCreating(false);
     onOpenChange(false);
     form.reset();
