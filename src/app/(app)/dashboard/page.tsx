@@ -61,9 +61,10 @@ export default function DashboardPage() {
 
   // Helper function to update projects in both state and localStorage
   const updateProjects = (updatedProjects: Project[]) => {
+    // First, update the React state with the full project data (including audioDataUri if present)
     setProjects(updatedProjects);
     try {
-      // Don't save audioDataUri to localStorage
+      // Then, create a version for localStorage that EXCLUDES audioDataUri
       const projectsToStore = updatedProjects.map(({ audioDataUri, ...rest }) => rest);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(projectsToStore));
     } catch (error) {
@@ -150,6 +151,19 @@ export default function DashboardPage() {
     // Add toast notification here
   };
 
+  const handleProjectClick = (project: Project) => {
+    // When a project card is clicked, we store the full project object
+    // (including the potentially available audioDataUri from the state)
+    // in session storage before navigating. The editor page will then
+    // prioritize loading from session storage.
+    try {
+      sessionStorage.setItem(`timbro-active-project-${project.id}`, JSON.stringify(project));
+    } catch (e) {
+      console.error("Could not save project to session storage", e);
+    }
+    router.push(`/projects/${project.id}/edit`);
+  };
+
   const filteredProjects = projects.filter(project => 
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     project.audioFileName?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -226,7 +240,7 @@ export default function DashboardPage() {
             viewMode === 'grid' ? "grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "flex flex-col"
           )}>
           {filteredProjects.map(project => (
-            <ProjectCard key={project.id} project={project} onDelete={handleDeleteProject} />
+            <ProjectCard key={project.id} project={project} onDelete={handleDeleteProject} onProjectClick={handleProjectClick}/>
           ))}
         </div>
       )}

@@ -99,38 +99,56 @@ export default function ProjectEditPage() {
   const playedEffectsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    let foundProject: Project | null = null;
+    // Prioritize loading from session storage, which holds the full object with audioDataUri
     try {
-      const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
-      
-      const foundProject = allProjects.find((p: Project) => p.id === projectId);
+      const sessionData = sessionStorage.getItem(`timbro-active-project-${projectId}`);
+      if (sessionData) {
+        foundProject = JSON.parse(sessionData);
+      }
+    } catch (e) {
+      console.warn("Could not parse project from session storage:", e);
+    }
+    
+    // Fallback to local storage if session storage fails or is empty
+    if (!foundProject) {
+        try {
+            const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+            const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
+            foundProject = allProjects.find((p: Project) => p.id === projectId) || null;
+        } catch (error) {
+            console.error("Failed to load project from localStorage:", error);
+        }
+    }
 
-      if (foundProject) {
-        // If audioDataUri is missing (because it's not stored in localStorage anymore),
-        // we can't do much in the editor. This is a limitation of the current design.
-        // A real app would fetch this from a server. For now, we show a message.
+    if (foundProject) {
+        // Now, the critical check for audio data happens after trying both sources
         if (!foundProject.audioDataUri) {
-          toast({
-            title: "Audio Data Missing",
-            description: "The audio for this project can't be loaded because you may have refreshed the page. Please start a new project.",
-            variant: "destructive",
-            duration: 10000,
-          });
+            toast({
+                title: "Audio Data Missing",
+                description: "The audio for this project can't be loaded. This can happen if you refresh the editor page. Please return to the dashboard and re-enter the project.",
+                variant: "destructive",
+                duration: 10000,
+            });
         }
         setProject(foundProject);
         if (foundProject.audioDataUri) {
-          generateWaveform(foundProject.audioDataUri).then(setWaveform);
+            generateWaveform(foundProject.audioDataUri).then(setWaveform);
         }
-      } else {
+    } else {
         toast({ title: "Project not found", variant: "destructive" });
         router.push('/dashboard');
-      }
-    } catch (error) {
-      console.error("Failed to load project from localStorage:", error);
-      toast({ title: "Error loading project", variant: "destructive" });
-      router.push('/dashboard');
     }
-  }, [projectId, router]);
+    
+    // Clean up session storage after use
+    return () => {
+        try {
+            sessionStorage.removeItem(`timbro-active-project-${projectId}`);
+        } catch (e) {
+            // Fails silently
+        }
+    };
+}, [projectId, router]);
 
 
   // Centralized function to update project state and save to localStorage
@@ -141,6 +159,11 @@ export default function ProjectEditPage() {
     setProject(updatedProject);
 
     try {
+      // Also update session storage if it exists, to keep it fresh
+      if (sessionStorage.getItem(`timbro-active-project-${projectId}`)) {
+          sessionStorage.setItem(`timbro-active-project-${projectId}`, JSON.stringify(updatedProject));
+      }
+
       const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
       const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
       const projectIndex = allProjects.findIndex((p: Project) => p.id === projectId);

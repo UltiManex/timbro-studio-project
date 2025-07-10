@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -12,9 +13,10 @@ import { formatDistanceToNow } from 'date-fns';
 interface ProjectCardProps {
   project: Project;
   onDelete: (projectId: string) => void;
+  onProjectClick: (project: Project) => void;
 }
 
-export function ProjectCard({ project, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, onDelete, onProjectClick }: ProjectCardProps) {
   const getStatusBadgeVariant = (status: Project['status']): 'default' | 'secondary' | 'destructive' | 'outline' => {
     switch (status) {
       case 'Completed':
@@ -45,23 +47,36 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
     }
   }
 
+  const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Prevent navigation if the dropdown menu trigger was clicked.
+    if ((e.target as HTMLElement).closest('[data-radix-dropdown-menu-trigger]')) {
+      return;
+    }
+    onProjectClick(project);
+  };
+  
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.stopPropagation(); // Prevent card click handler from firing
+    onProjectClick(project);
+  };
+
   return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col">
+    <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col cursor-pointer" onClick={handleCardClick}>
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg font-semibold leading-tight hover:text-primary transition-colors">
-            <Link href={`/projects/${project.id}/edit`}>{project.name}</Link>
+            <Link href={`/projects/${project.id}/edit`} onClick={handleLinkClick}>{project.name}</Link>
           </CardTitle>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon" className="h-8 w-8" data-radix-dropdown-menu-trigger>
                 <MoreHorizontal className="h-4 w-4" />
                 <span className="sr-only">More options</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
               <DropdownMenuItem asChild>
-                <Link href={`/projects/${project.id}/edit`} className="flex items-center">
+                <Link href={`/projects/${project.id}/edit`} onClick={handleLinkClick} className="flex items-center">
                   <Edit3 className="mr-2 h-4 w-4" />
                   Edit
                 </Link>
@@ -100,19 +115,19 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
         )}
         {project.duration && (
           <p className="text-sm text-muted-foreground">
-            Duration: {Math.floor(project.duration / 60)}m {project.duration % 60}s
+            Duration: {Math.floor(project.duration / 60)}m {Math.round(project.duration % 60)}s
           </p>
         )}
       </CardContent>
       <CardFooter className="pt-2">
         {project.status === 'Ready for Review' || project.status === 'Error' ? (
-          <Button asChild className="w-full" size="sm">
+          <Button asChild className="w-full" size="sm" onClick={(e) => { e.stopPropagation(); onProjectClick(project); }}>
             <Link href={`/projects/${project.id}/edit`}>
               {project.status === 'Error' ? 'View Error & Retry' : 'Review Suggestions'}
             </Link>
           </Button>
         ) : project.status === 'Completed' ? (
-           <Button asChild variant="outline" className="w-full" size="sm" disabled={!project.finalAudioUrl}>
+           <Button asChild variant="outline" className="w-full" size="sm" disabled={!project.finalAudioUrl} onClick={(e) => e.stopPropagation()}>
             <a href={project.finalAudioUrl || '#'} download={`${project.name}.mp3`} aria-disabled={!project.finalAudioUrl}>
               <Download className="mr-2 h-4 w-4" />
               Download MP3
