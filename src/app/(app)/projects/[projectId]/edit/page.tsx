@@ -192,11 +192,13 @@ export default function ProjectEditPage() {
         previewAudioRef.current.pause();
         previewAudioRef.current.currentTime = 0;
     }
-
-    if (!previewUrl || previewUrl.trim() === '' || previewUrl.startsWith('#') || previewUrl === 'undefined') {
+    
+    // Robustness check for the previewUrl
+    if (!previewUrl || typeof previewUrl !== 'string' || previewUrl.trim() === '' || previewUrl.startsWith('#') || previewUrl === 'undefined') {
+        console.warn(`Attempted to play preview with invalid URL: '${previewUrl}' for effect: '${effectName}'`);
         toast({
             title: "No Preview Available",
-            description: `Preview for ${effectName} is not set up or URL is invalid.`,
+            description: `The preview for '${effectName}' is not set up correctly.`,
             variant: "destructive",
         });
         return;
@@ -216,7 +218,7 @@ export default function ProjectEditPage() {
                 }
                 toast({
                     title: "Playback Error",
-                    description: `Could not play ${effectName}. Check console.`,
+                    description: `Could not play '${effectName}'. The file might be corrupt or in an unsupported format.`,
                     variant: "destructive",
                 });
             });
@@ -301,8 +303,6 @@ export default function ProjectEditPage() {
         return;
     }
     
-    // The Algolia hit object might not have the 'id' field if it wasn't explicitly mapped.
-    // It will, however, have 'objectID'. Let's safely use that as a fallback.
     const effectId = effect.id || (effect as any).objectID;
 
     if (!effectId) {
