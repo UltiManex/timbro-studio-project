@@ -26,7 +26,7 @@ export default function NewProjectPage() {
   const router = useRouter();
 
   const handleProjectCreated = async (project: Omit<Project, 'audioUrl'>, audioFile: File) => {
-     // --- FIX START: Save project to local storage BEFORE the upload attempt ---
+    // --- FIX: Save project to local storage BEFORE the upload attempt ---
     
     // 1. Get existing projects from storage
     const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -63,7 +63,7 @@ export default function NewProjectPage() {
       
       const fileExtension = getFileExtension(audioFile.name) || 'mp3';
       
-      // Upload the audio file to Firebase Storage with a standardized name
+      // Use a standardized filename to avoid issues with special characters.
       const storageRef = ref(storage, `uploads/${project.id}/audio.${fileExtension}`);
       const uploadResult = await uploadBytes(storageRef, audioFile);
       const downloadURL = await getDownloadURL(uploadResult.ref);
