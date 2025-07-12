@@ -64,24 +64,30 @@ export default function DashboardPage() {
   }, [searchParams]);
 
   // Helper function to update projects in both state and localStorage
-  const updateProjects = (updatedProjects: Project[]) => {
-    setProjects(updatedProjects);
+  const updateProjects = (updatedProjects: Project[]): boolean => {
     try {
-      // Create a version for localStorage that EXCLUDES audioDataUri
       const projectsToStore = updatedProjects.map(({ audioDataUri, ...rest }) => rest);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(projectsToStore));
+      setProjects(updatedProjects);
+      return true;
     } catch (error) {
       console.error("Failed to update projects in localStorage:", error);
+      toast({
+        title: "Storage Error",
+        description: "Could not save project changes. Your browser's storage might be full or permissions are denied.",
+        variant: "destructive"
+      });
+      return false;
     }
   };
 
-  // Create a memoized dependency that only changes when the list of processing projects changes.
   const processingProjectIds = useMemo(() => {
     return projects
       .filter(p => p.status === 'Processing')
       .map(p => p.id)
       .join(',');
   }, [projects]);
+
 
   // This effect simulates a background worker queue for AI processing.
   // It now only triggers when the list of processing projects changes.
@@ -166,15 +172,18 @@ export default function DashboardPage() {
 
   const handleDeleteProject = (projectId: string) => {
     const projectToDelete = projects.find(p => p.id === projectId);
+    if (!projectToDelete) return;
+    
     const updatedProjectsList = projects.filter(p => p.id !== projectId);
-    updateProjects(updatedProjectsList);
+    const success = updateProjects(updatedProjectsList);
 
-    if (projectToDelete) {
-        toast({
-            title: "Project Deleted",
-            description: `"${projectToDelete.name}" has been removed.`,
-        });
+    if (success) {
+      toast({
+          title: "Project Deleted",
+          description: `"${projectToDelete.name}" has been removed.`,
+      });
     }
+    // Failure toast is handled within updateProjects
   };
 
   const handleProjectClick = (project: Project) => {
