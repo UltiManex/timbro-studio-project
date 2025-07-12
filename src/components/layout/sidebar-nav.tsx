@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -49,8 +50,7 @@ export function SidebarNav({ isMobile = false, onLinkClick }: SidebarNavProps) {
   return (
     <nav className={cn("grid items-start gap-2 text-sm font-medium", isMobile ? "p-4" : "px-2 lg:px-4")}>
       {navItems.map(renderNavItem)}
-      {!isMobile && <div className="my-4 border-t border-border -mx-2 lg:-mx-4"></div>}
-      {isMobile && <div className="my-4 border-t border-border -mx-4"></div>}
+      <div className={cn("my-4 border-t border-border", isMobile ? "-mx-4" : "-mx-2 lg:-mx-4")} />
       {bottomNavItems.map(renderNavItem)}
     </nav>
   );

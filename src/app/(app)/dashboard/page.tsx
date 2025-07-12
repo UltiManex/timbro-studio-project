@@ -147,6 +147,14 @@ export default function DashboardPage() {
   }, [projects]);
 
   const handleDeleteProject = (projectId: string) => {
+    // Stop this project from being processed if it's in the queue
+    setProcessingProjects(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(projectId);
+      return newSet;
+    });
+    
+    // Remove from the main projects list and update localStorage
     const updatedProjectsList = projects.filter(p => p.id !== projectId);
     updateProjects(updatedProjectsList);
     // Add toast notification here
