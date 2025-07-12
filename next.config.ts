@@ -19,7 +19,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  sentry: {
+};
+
+export default withSentryConfig(
+  nextConfig,
+  {
     // For all available options, see:
     // https://github.com/getsentry/sentry-webpack-plugin#options
 
@@ -33,10 +37,6 @@ const nextConfig: NextConfig = {
     // project: process.env.SENTRY_PROJECT,
     // authToken: process.env.SENTRY_AUTH_TOKEN,
   },
-};
-
-export default withSentryConfig(
-  nextConfig,
   {
     // For all available options, see:
     // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
