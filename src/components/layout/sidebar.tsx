@@ -4,12 +4,13 @@ import { SidebarNav } from './sidebar-nav';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { TRIAL_PROCESSING_MINUTES } from '@/lib/constants';
 
 export function Sidebar() {
   // Mock data for trial status
   const trialDaysLeft = 5;
   const trialMinutesUsed = 15;
-  const trialMinutesTotal = 30;
+  const trialMinutesTotal = TRIAL_PROCESSING_MINUTES;
   const minutesProgress = (trialMinutesUsed / trialMinutesTotal) * 100;
 
   return (
@@ -26,7 +27,7 @@ export function Sidebar() {
         <div className="mt-auto p-4">
           <Card x-chunk="dashboard-02-chunk-0">
             <CardHeader className="p-2 pt-0 md:p-4">
-              <CardTitle className="text-lg">Free Trial</CardTitle>
+              <CardTitle className="text-lg font-headline">Free Trial</CardTitle>
               <CardDescription>
                 {trialDaysLeft} days left. You've used {trialMinutesUsed} of {trialMinutesTotal} processing minutes.
               </CardDescription>
