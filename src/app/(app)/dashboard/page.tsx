@@ -72,8 +72,7 @@ export default function DashboardPage() {
       // Then, create a version for localStorage that EXCLUDES audioDataUri
       const projectsToStore = updatedProjects.map(({ audioDataUri, ...rest }) => rest);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(projectsToStore));
-    } catch (error) {
-      console.error("Failed to update projects in localStorage:", error);
+    } catch (error)      console.error("Failed to update projects in localStorage:", error);
     }
   };
   
@@ -165,6 +164,13 @@ export default function DashboardPage() {
           if (newProjectAudioStore[project.id]) {
             delete newProjectAudioStore[project.id];
           }
+        } finally {
+            // Unflag the project from being processed regardless of outcome
+            setProcessingProjects(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(project.id);
+                return newSet;
+            });
         }
       });
     }
