@@ -30,7 +30,6 @@ export default function DashboardPage() {
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [processingProjects, setProcessingProjects] = useState<Set<string>>(new Set());
   
   // Use a ref to hold the latest projects array to prevent stale closures in useEffect
   const projectsRef = useRef(projects);
@@ -79,13 +78,11 @@ export default function DashboardPage() {
   // This effect simulates a background worker queue for AI processing.
   useEffect(() => {
     const projectsToProcess = projects.filter(
-      p => p.status === 'Processing' && !processingProjects.has(p.id)
+      p => p.status === 'Processing'
     );
 
     if (projectsToProcess.length > 0) {
       projectsToProcess.forEach(async (project) => {
-        // Flag this project as being processed to avoid duplicate runs
-        setProcessingProjects(prev => new Set(prev).add(project.id));
         
         // Retrieve the audio data URI from the global in-memory store
         const newProjectAudioStore = (window as any).newProjectAudioStore || {};
@@ -164,13 +161,6 @@ export default function DashboardPage() {
           if (newProjectAudioStore[project.id]) {
             delete newProjectAudioStore[project.id];
           }
-        } finally {
-            // Unflag the project from being processed regardless of outcome
-            setProcessingProjects(prev => {
-                const newSet = new Set(prev);
-                newSet.delete(project.id);
-                return newSet;
-            });
         }
       });
     }
@@ -178,14 +168,6 @@ export default function DashboardPage() {
   }, [projects]);
 
   const handleDeleteProject = (projectId: string) => {
-    // Stop this project from being processed if it's in the queue
-    setProcessingProjects(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(projectId);
-      return newSet;
-    });
-    
-    // Remove from the main projects list and update localStorage
     const updatedProjectsList = projects.filter(p => p.id !== projectId);
     updateProjects(updatedProjectsList);
     // Add toast notification here
