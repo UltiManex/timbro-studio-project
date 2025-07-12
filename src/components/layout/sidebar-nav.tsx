@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -7,10 +6,10 @@ import { Home, FolderKanban, PlusCircle, Settings, LifeBuoy, ShoppingBag } from 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
-interface SidebarNavProps {
+type SidebarNavProps = {
   isMobile?: boolean;
   onLinkClick?: () => void;
-}
+};
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
