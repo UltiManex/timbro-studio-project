@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from "@/components/ui/button";
@@ -48,7 +49,7 @@ export default function SupportPage() {
 
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle className="flex items-center"><Search className="mr-2 h-5 w-5"/> Search Knowledge Base</CardTitle>
+          <CardTitle className="flex items-center font-headline"><Search className="mr-2 h-5 w-5"/> Search Knowledge Base</CardTitle>
         </CardHeader>
         <CardContent>
           <Input placeholder="Type your question here (e.g., 'how to export')" className="text-base py-3"/>
@@ -58,7 +59,7 @@ export default function SupportPage() {
       <div className="grid md:grid-cols-2 gap-6 mb-8">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="flex items-center"><BookOpen className="mr-2 h-5 w-5 text-primary"/> Frequently Asked Questions</CardTitle>
+            <CardTitle className="flex items-center font-headline"><BookOpen className="mr-2 h-5 w-5 text-primary"/> Frequently Asked Questions</CardTitle>
           </CardHeader>
           <CardContent>
             <Accordion type="single" collapsible className="w-full">
@@ -75,7 +76,7 @@ export default function SupportPage() {
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
-            <CardTitle className="flex items-center"><MessageSquare className="mr-2 h-5 w-5 text-primary"/> Contact Support</CardTitle>
+            <CardTitle className="flex items-center font-headline"><MessageSquare className="mr-2 h-5 w-5 text-primary"/> Contact Support</CardTitle>
             <CardDescription>Can't find an answer? Get in touch with our support team.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

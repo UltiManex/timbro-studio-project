@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,7 @@ export default function SettingsPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Profile Information</CardTitle>
+          <CardTitle className="font-headline">Profile Information</CardTitle>
           <CardDescription>Update your personal details.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -37,7 +38,7 @@ export default function SettingsPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Password</CardTitle>
+          <CardTitle className="font-headline">Password</CardTitle>
           <CardDescription>Change your account password.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -59,7 +60,7 @@ export default function SettingsPage() {
       
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Notification Settings</CardTitle>
+          <CardTitle className="font-headline">Notification Settings</CardTitle>
           <CardDescription>Manage how you receive notifications from Timbro.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -84,7 +85,7 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-destructive">Danger Zone</CardTitle>
+          <CardTitle className="text-destructive font-headline">Danger Zone</CardTitle>
           <CardDescription>Actions taken here are irreversible.</CardDescription>
         </CardHeader>
         <CardContent>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from "@/components/ui/button";
@@ -70,7 +71,7 @@ export default function BillingPage() {
                   Most Popular
                 </div>
               )}
-              <CardTitle className="text-2xl font-semibold">{plan.name}</CardTitle>
+              <CardTitle className="text-2xl font-semibold font-headline">{plan.name}</CardTitle>
               <div className="flex items-baseline">
                 <span className="text-4xl font-bold">{plan.price}</span>
                 <span className="text-muted-foreground ml-1">{plan.duration}</span>
@@ -97,7 +98,7 @@ export default function BillingPage() {
 
       <Card className="mt-10">
         <CardHeader>
-          <CardTitle>Current Usage</CardTitle>
+          <CardTitle className="font-headline">Current Usage</CardTitle>
           <CardDescription>Overview of your current plan's usage.</CardDescription>
         </CardHeader>
         <CardContent className="grid sm:grid-cols-2 gap-4">
@@ -123,7 +124,7 @@ export default function BillingPage() {
       
       <Card className="mt-6">
         <CardHeader>
-            <CardTitle>Billing History</CardTitle>
+            <CardTitle className="font-headline">Billing History</CardTitle>
             <CardDescription>View your past invoices and payments.</CardDescription>
         </CardHeader>
         <CardContent>
