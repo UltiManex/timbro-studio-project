@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "algolia:index": "tsx scripts/index-algolia.ts"
+    "algolia:index": "tsx scripts/index-algolia.ts",
+    "firestore:seed": "tsx scripts/seed-db.ts"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.8.0",
@@ -44,6 +45,7 @@
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",
     "firebase": "^10.12.3",
+    "firebase-admin": "^12.2.0",
     "genkit": "^1.8.0",
     "lucide-react": "^0.475.0",
     "next": "15.3.3",
