@@ -25,10 +25,13 @@ const nextConfig: NextConfig = {
 
     // Suppresses source map uploading logs during build
     silent: true,
-    // Note: Reporting source maps is enabled in `sentry.client.config.ts` and `sentry.server.config.ts`
-    // org: process.env.SENTRY_ORG, // Optional: configure if you want to upload source maps during build time
-    // project: process.env.SENTRY_PROJECT, // Optional: configure if you want to upload source maps during build time
-    // authToken: process.env.SENTRY_AUTH_TOKEN, // Optional: configure if you want to upload source maps during build time
+    
+    // Un-comment the following lines to enable source map uploading during build.
+    // You'll need to set the `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN`
+    // environment variables for this to work.
+    // org: process.env.SENTRY_ORG,
+    // project: process.env.SENTRY_PROJECT,
+    // authToken: process.env.SENTRY_AUTH_TOKEN,
   },
 };
 
