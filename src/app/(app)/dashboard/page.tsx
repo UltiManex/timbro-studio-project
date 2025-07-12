@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,10 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [processingProjects, setProcessingProjects] = useState<Set<string>>(new Set());
+  
+  // Use a ref to hold the latest projects array to prevent stale closures in useEffect
+  const projectsRef = useRef(projects);
+  projectsRef.current = projects;
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -113,11 +117,20 @@ export default function DashboardPage() {
             }));
           }
           
+          // Before updating state, check if the project still exists (wasn't deleted while processing)
+          const currentProjects = projectsRef.current;
+          if (!currentProjects.some(p => p.id === project.id)) {
+            console.log(`Project ${project.id} was deleted during processing. Aborting update.`);
+            // Clean up the in-memory store anyway
+            delete newProjectAudioStore[project.id];
+            return;
+          }
+
           // Create a new version of the project that includes the audioDataUri for the editor
           const projectWithAudio = { ...project, status: 'Ready for Review' as const, effects: aiSuggestions, transcript: transcript, audioDataUri: audioDataUri };
 
           // Update the project in the main state and localStorage
-          const updatedProjects = projects.map(p =>
+          const updatedProjects = currentProjects.map(p =>
             p.id === project.id
               ? projectWithAudio
               : p
@@ -129,8 +142,20 @@ export default function DashboardPage() {
 
         } catch (e) {
           console.error(`AI processing failed for project ${project.id}:`, e);
+          
+           // Before updating state, check if the project still exists
+           const currentProjects = projectsRef.current;
+           if (!currentProjects.some(p => p.id === project.id)) {
+             console.log(`Project ${project.id} was deleted during processing. Aborting error update.`);
+             // Clean up the in-memory store anyway
+            if (newProjectAudioStore[project.id]) {
+                delete newProjectAudioStore[project.id];
+            }
+             return;
+           }
+
           // Update the project to an 'Error' state
-          const updatedProjects = projects.map(p =>
+          const updatedProjects = currentProjects.map(p =>
             p.id === project.id
               ? { ...p, status: 'Error' as const }
               : p
