@@ -71,7 +71,8 @@ export default function DashboardPage() {
       // Then, create a version for localStorage that EXCLUDES audioDataUri
       const projectsToStore = updatedProjects.map(({ audioDataUri, ...rest }) => rest);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(projectsToStore));
-    } catch (error)      console.error("Failed to update projects in localStorage:", error);
+    } catch (error) {
+      console.error("Failed to update projects in localStorage:", error);
     }
   };
   
