@@ -244,7 +244,7 @@ export default function DashboardPage() {
       )}
 
       {filteredProjects.length === 0 && !searchTerm && (
-        <div className="text-center py-12 border-2 border-dashed border-border rounded-lg">
+        <div className="flex flex-col items-center justify-center text-center py-12 border-2 border-dashed border-border rounded-lg bg-card">
           <h3 className="text-xl font-semibold">No Projects Yet</h3>
           <p className="text-muted-foreground mt-2">Get started by creating your first audio project.</p>
           <Button asChild className="mt-4">
