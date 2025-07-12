@@ -12,6 +12,20 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import type { SoundEffect } from '@/lib/types';
+import { db } from '@/lib/firebase-admin';
+
+async function fetchSoundEffectsFromFirestore(): Promise<SoundEffect[]> {
+  const sfxCollection = db.collection('sound_effects');
+  const snapshot = await sfxCollection.get();
+  if (snapshot.empty) {
+    return [];
+  }
+  const effects: SoundEffect[] = [];
+  snapshot.forEach(doc => {
+    effects.push(doc.data() as SoundEffect);
+  });
+  return effects;
+}
 
 const SoundEffectSuggestionSchema = z.object({
   effectId: z.string().describe('The ID of the suggested sound effect from the provided library (e.g., "sfx_001").'),
@@ -26,12 +40,6 @@ const SuggestSoundEffectsInputSchema = z.object({
   selectedTone: z
     .enum(['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational'])
     .describe('The tone selected by the user to guide the sound effect suggestions.'),
-  availableEffects: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    tags: z.array(z.string()),
-    tone: z.array(z.string()),
-  })).describe('A library of available sound effects the AI can choose from.'),
   audioDuration: z.number().describe('The total duration of the audio in seconds.'),
 });
 export type SuggestSoundEffectsInput = z.infer<typeof SuggestSoundEffectsInputSchema>;
@@ -50,7 +58,15 @@ export async function suggestSoundEffects(input: SuggestSoundEffectsInput): Prom
 
 const prompt = ai.definePrompt({
   name: 'suggestSoundEffectsPrompt',
-  input: {schema: SuggestSoundEffectsInputSchema},
+  input: {schema: z.object({
+    ...SuggestSoundEffectsInputSchema.shape,
+     availableEffects: z.array(z.object({ // Add availableEffects back for the prompt context only
+      id: z.string(),
+      name: z.string(),
+      tags: z.array(z.string()),
+      tone: z.array(z.string()),
+    })).describe('A library of available sound effects the AI can choose from.'),
+  })},
   output: {schema: SuggestSoundEffectsOutputSchema},
   prompt: `You are an expert audio post-production assistant and sound designer. Your goal is to analyze an audio file, transcribe it, and then intelligently place sound effects to enhance the narrative based on the content and a desired tone.
 
@@ -85,7 +101,16 @@ const suggestSoundEffectsFlow = ai.defineFlow(
     outputSchema: SuggestSoundEffectsOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    // Fetch the sound effects library from Firestore within the flow
+    const availableEffects = await fetchSoundEffectsFromFirestore();
+    
+    // Augment the original input with the fetched effects for the prompt
+    const promptInput = {
+      ...input,
+      availableEffects: availableEffects.map(({ previewUrl, ...rest }) => rest),
+    };
+
+    const {output} = await prompt(promptInput);
     return output!;
   }
 );

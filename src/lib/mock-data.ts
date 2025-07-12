@@ -8,7 +8,8 @@ export const mockProjects: Project[] = [
   { id: 'proj_4', name: 'Quick Update', date: new Date(Date.now() - 86400000 * 10).toISOString(), status: 'Error', audioFileName: 'update_audio.m4a', duration: 300, selectedTone: 'Suspenseful', defaultEffectPlacement: 'manual-only', effects: [], transcript: "A quick update for everyone." },
 ];
 
-// This library now matches the 8 files present in the public/sounds/ folder.
+// This library is now stored in Firestore and will be removed from here.
+// It's kept temporarily for the seeding script.
 export const mockSoundEffectsLibrary: SoundEffect[] = [
   { id: 'sfx_001', name: 'Comical Boing', tags: ['boing', 'jump', 'funny'], tone: ['Comedic'], previewUrl: '/sounds/comical-boing.mp3' },
   { id: 'sfx_002', name: 'Dramatic Swell', tags: ['swell', 'tension', 'reveal'], tone: ['Dramatic', 'Suspenseful'], previewUrl: '/sounds/dramatic-swell.mp3' },

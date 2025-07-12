@@ -1,11 +1,29 @@
-
 // scripts/index-algolia.ts
 import algoliasearch from 'algoliasearch';
 import { config } from 'dotenv';
-import { mockSoundEffectsLibrary } from '../src/lib/mock-data';
+import { db } from '../src/lib/firebase-admin';
+import type { SoundEffect } from '../src/lib/types';
 
 // Load environment variables from .env file
 config();
+
+async function fetchSoundEffectsFromFirestore(): Promise<SoundEffect[]> {
+  console.log('Fetching sound effects from Firestore...');
+  const sfxCollection = db.collection('sound_effects');
+  const snapshot = await sfxCollection.get();
+
+  if (snapshot.empty) {
+    console.log('No sound effects found in Firestore. Please seed the database first by running `npm run firestore:seed:sfx`.');
+    return [];
+  }
+
+  const effects: SoundEffect[] = [];
+  snapshot.forEach(doc => {
+    effects.push(doc.data() as SoundEffect);
+  });
+  console.log(`Fetched ${effects.length} sound effects.`);
+  return effects;
+}
 
 async function indexData() {
   const algoliaAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID;
@@ -20,12 +38,18 @@ async function indexData() {
   }
 
   try {
+    const soundEffects = await fetchSoundEffectsFromFirestore();
+    if (soundEffects.length === 0) {
+      console.log('No sound effects to index. Exiting.');
+      return;
+    }
+
     // Initialize Algolia client
     const client = algoliasearch(algoliaAppId, algoliaAdminApiKey);
     const index = client.initIndex(algoliaIndexName);
 
     // Prepare data for Algolia by adding objectID
-    const records = mockSoundEffectsLibrary.map((effect) => ({
+    const records = soundEffects.map((effect) => ({
       ...effect,
       objectID: effect.id, // Use existing ID as objectID
     }));

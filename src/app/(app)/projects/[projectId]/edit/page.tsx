@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import type { Project, SoundEffect, SoundEffectInstance, Tone } from '@/lib/types';
 import { AVAILABLE_TONES, EDITOR_NUDGE_INCREMENT_MS } from '@/lib/constants';
-import { mockSoundEffectsLibrary } from '@/lib/mock-data';
 import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2 } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
 import { Slider } from '@/components/ui/slider';
@@ -84,6 +83,7 @@ export default function ProjectEditPage() {
   const projectId = params.projectId as string;
 
   const [project, setProject] = useState<Project | null>(null);
+  const [soundLibrary, setSoundLibrary] = useState<SoundEffect[]>([]);
   const [selectedEffectInstance, setSelectedEffectInstance] = useState<SoundEffectInstance | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -143,6 +143,20 @@ export default function ProjectEditPage() {
         toast({ title: "Project not found", variant: "destructive" });
         router.push('/dashboard');
     }
+
+    // Fetch sound library from server action (new)
+    // This is a placeholder for a proper server fetch.
+    const fetchLibrary = async () => {
+        const storedLibraryRaw = localStorage.getItem('timbro-sfx-library');
+        if (storedLibraryRaw) {
+             setSoundLibrary(JSON.parse(storedLibraryRaw));
+        } else {
+            // In a real app, this would be an API call
+            // For now, we simulate by checking local storage
+            console.warn("Sound effect library not found in local cache. This should be fetched from a server.");
+        }
+    };
+    fetchLibrary();
 }, [projectId, router]);
 
 
@@ -203,7 +217,7 @@ export default function ProjectEditPage() {
         newTime >= effectInstance.timestamp &&
         newTime < effectInstance.timestamp + 0.5 // A small window to trigger
       ) {
-        const effectDetails = mockSoundEffectsLibrary.find(e => e.id === effectInstance.effectId);
+        const effectDetails = soundLibrary.find(e => e.id === effectInstance.effectId);
         if (effectDetails && effectDetails.previewUrl) {
           const sfx = new Audio(effectDetails.previewUrl);
           sfx.volume = effectInstance.volume ?? 1.0;
@@ -374,7 +388,7 @@ export default function ProjectEditPage() {
     return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /> Loading project...</div>;
   }
   
-  const currentEffectDetails = selectedEffectInstance ? mockSoundEffectsLibrary.find(libSfx => libSfx.id === selectedEffectInstance.effectId) : null;
+  const currentEffectDetails = selectedEffectInstance ? soundLibrary.find(libSfx => libSfx.id === selectedEffectInstance.effectId) : null;
   const audioSource = project.audioDataUri || project.audioUrl;
 
   return (
@@ -447,7 +461,7 @@ export default function ProjectEditPage() {
                 )}
                 {/* Effect Markers */}
                 {effects.map(ef => {
-                  const effectDetailsMarker = mockSoundEffectsLibrary.find(libSfx => libSfx.id === ef.effectId);
+                  const effectDetailsMarker = soundLibrary.find(libSfx => libSfx.id === ef.effectId);
                   const toneForIcon = ef.isUserAdded ? 'User' : (effectDetailsMarker?.tone[0] || project.selectedTone);
                   return (
                     <div 
@@ -530,7 +544,7 @@ export default function ProjectEditPage() {
                   {currentEffectDetails && (
                      <div className="pt-2 border-t">
                         <p className="text-sm font-medium mb-1">Quick Swap:</p>
-                        {mockSoundEffectsLibrary.filter(sfx => sfx.id !== currentEffectDetails.id && sfx.tone.some(t => currentEffectDetails.tone.includes(t))).slice(0,2).map(swapSfx => (
+                        {soundLibrary.filter(sfx => sfx.id !== currentEffectDetails.id && sfx.tone.some(t => currentEffectDetails.tone.includes(t))).slice(0,2).map(swapSfx => (
                            <Button key={swapSfx.id} variant="outline" size="sm" className="w-full mb-1 text-xs" onClick={() => handleSelectSoundForInstance(swapSfx)}>
                              Swap to: {swapSfx.name}
                            </Button>

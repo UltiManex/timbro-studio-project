@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { mockProjects, mockSoundEffectsLibrary } from '@/lib/mock-data';
+import { mockProjects } from '@/lib/mock-data';
 import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
@@ -101,7 +101,6 @@ export default function DashboardPage() {
           const aiResponse = await suggestSoundEffects({
             audioDataUri: audioDataUri,
             selectedTone: project.selectedTone,
-            availableEffects: mockSoundEffectsLibrary.map(({ previewUrl, ...rest }) => rest),
             audioDuration: project.duration || 60,
           });
 
