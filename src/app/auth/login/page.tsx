@@ -12,6 +12,7 @@ import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useRouter } from 'next/navigation'; // Changed from 'next/navigation'
 import { toast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -87,6 +88,7 @@ export default function LoginPage() {
                 )}
               />
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {form.formState.isSubmitting ? 'Logging in...' : 'Login'}
               </Button>
               <Button variant="outline" className="w-full" type="button">

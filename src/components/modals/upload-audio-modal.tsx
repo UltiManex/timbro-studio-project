@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useCallback, ChangeEvent } from 'react';
@@ -15,13 +14,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { AVAILABLE_TONES, MAX_AUDIO_FILE_SIZE_BYTES, MAX_AUDIO_FILE_SIZE_MB, ALLOWED_AUDIO_TYPES, AVAILABLE_EFFECT_PLACEMENTS } from '@/lib/constants';
 import type { Tone, DefaultEffectPlacement, Project } from '@/lib/types';
-import { UploadCloud, FileAudio, X, Loader2 } from 'lucide-react';
+import { UploadCloud, FileAudio, X, Loader2, Terminal } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TrustBadgeIcon, ToneIcon } from '@/components/icons';
 import { mockTranscript } from '@/lib/mock-data';
 import { isFirebaseConfigured } from '@/lib/firebase';
-import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { Terminal } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const projectSchema = z.object({
   projectName: z.string().min(3, { message: 'Project name must be at least 3 characters.' }),
@@ -182,11 +180,11 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
         </DialogHeader>
 
         {!isFirebaseConfigured && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="mt-4">
             <Terminal className="h-4 w-4" />
             <AlertTitle>Firebase Not Configured</AlertTitle>
             <AlertDescription>
-              Firebase Storage is not set up. Please add your Firebase configuration to your <code>.env.local</code> file to enable file uploads.
+              Firebase Storage is not set up. Please add your Firebase configuration to your <code>.env</code> file to enable file uploads. Project creation is disabled.
             </AlertDescription>
           </Alert>
         )}

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -25,9 +24,10 @@ const LOCAL_STORAGE_KEY = 'timbro-projects';
 
 const algoliaAppId = process.env.NEXT_PUBLIC_ALGOLIA_APP_ID || '';
 const algoliaSearchApiKey = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY || '';
-const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME || ''; // Intentionally leave blank to force check
+const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME || ''; 
 
-const searchClient = algoliasearch(algoliaAppId, algoliaSearchApiKey);
+const isAlgoliaConfigured = algoliaAppId && algoliaSearchApiKey && algoliaIndexName;
+const searchClient = isAlgoliaConfigured ? algoliasearch(algoliaAppId, algoliaSearchApiKey) : null;
 
 // A more realistic approximation for transcript highlighting
 const APPROX_WORDS_PER_SECOND = 2.5; // Corresponds to 150 WPM
@@ -376,29 +376,6 @@ export default function ProjectEditPage() {
   const currentEffectDetails = selectedEffectInstance ? mockSoundEffectsLibrary.find(libSfx => libSfx.id === selectedEffectInstance.effectId) : null;
   const audioSource = project.audioDataUri || project.audioUrl;
 
-  if (!algoliaAppId || !algoliaSearchApiKey || !algoliaIndexName) {
-     return (
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-theme(spacing.28))] p-4">
-            <Card className="w-full max-w-md text-center">
-                <CardHeader>
-                    <CardTitle>Algolia Configuration Missing</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">
-                        The sound library is disabled. Please set up an Algolia account and add your keys to the <code>.env</code> file.
-                    </p>
-                    <p className="text-sm mt-2 text-muted-foreground">
-                      You'll need <code>NEXT_PUBLIC_ALGOLIA_APP_ID</code>, <code>NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY</code>, and <code>NEXT_PUBLIC_ALGOLIA_INDEX_NAME</code>.
-                    </p>
-                    <p className="text-sm mt-4 text-muted-foreground">
-                      After adding the keys, run the indexing command from your terminal: `npm run algolia:index`.
-                    </p>
-                </CardContent>
-            </Card>
-        </div>
-     );
-  }
-
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden">
       <audio 
@@ -567,63 +544,82 @@ export default function ProjectEditPage() {
           </Card>
           
           {/* Sound Library with Algolia */}
-          <InstantSearch
-            searchClient={searchClient}
-            indexName={algoliaIndexName}
-            insights={false} 
-          >
-            <Card className="flex-1 overflow-hidden">
-              <CardHeader>
-                <CardTitle className="text-lg">Sound Library</CardTitle>
-                <CardDescription>Select a marker, then choose a sound.</CardDescription>
-                <div className="flex gap-2 pt-2">
-                  <div className="relative flex-grow">
-                    <SearchBox
-                      placeholder="Search effects..."
-                      classNames={{
-                        root: 'relative',
-                        form: 'h-full',
-                        input: 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-8', // Added pl-8 for icon
-                        submitIcon: 'absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground',
-                        resetIcon: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer',
-                        loadingIndicator: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground',
-                      }}
-                    />
-                  </div>
-                  <Select value={filterTone} onValueChange={(value) => setFilterTone(value as Tone | 'All')}>
-                    <SelectTrigger className="w-[150px]" aria-label="Filter by tone">
-                       <ListFilter className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <SelectValue placeholder="Filter by Tone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="All">All Tones</SelectItem>
-                      {AVAILABLE_TONES.map(tone => (
-                        <SelectItem key={tone} value={tone}><ToneIcon tone={tone as Tone} className="mr-2 h-4 w-4 inline"/> {tone}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Configure filters={filterTone === 'All' ? undefined : `tone:"${filterTone}"`} />
-                </div>
-              </CardHeader>
-              <CardContent className="h-full pb-6">
-                <ScrollArea className="h-[calc(100%-2rem)] pr-2">
-                  <ul className="space-y-1">
-                    <NoResultsBoundary fallback={<p className="text-center text-sm text-muted-foreground p-4">No effects found.</p>}>
-                      <Hits<AlgoliaSoundEffectHit>
-                        hitComponent={(props) =>
-                          <SoundEffectHitItem
-                            hit={props.hit}
-                            onSelect={handleSelectSoundForInstance}
-                            onPreview={handlePreviewEffect}
-                          />
-                        }
+          <Card className="flex-1 overflow-hidden flex flex-col">
+            {isAlgoliaConfigured && searchClient ? (
+              <InstantSearch
+                searchClient={searchClient}
+                indexName={algoliaIndexName}
+                insights={false} 
+              >
+                <CardHeader>
+                  <CardTitle className="text-lg">Sound Library</CardTitle>
+                  <CardDescription>Select a marker, then choose a sound.</CardDescription>
+                  <div className="flex gap-2 pt-2">
+                    <div className="relative flex-grow">
+                      <SearchBox
+                        placeholder="Search effects..."
+                        classNames={{
+                          root: 'relative',
+                          form: 'h-full',
+                          input: 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-8', // Added pl-8 for icon
+                          submitIcon: 'absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground',
+                          resetIcon: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer',
+                          loadingIndicator: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground',
+                        }}
                       />
-                    </NoResultsBoundary>
-                  </ul>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </InstantSearch>
+                    </div>
+                    <Select value={filterTone} onValueChange={(value) => setFilterTone(value as Tone | 'All')}>
+                      <SelectTrigger className="w-[150px]" aria-label="Filter by tone">
+                         <ListFilter className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <SelectValue placeholder="Filter by Tone" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All Tones</SelectItem>
+                        {AVAILABLE_TONES.map(tone => (
+                          <SelectItem key={tone} value={tone}><ToneIcon tone={tone as Tone} className="mr-2 h-4 w-4 inline"/> {tone}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Configure filters={filterTone === 'All' ? undefined : `tone:"${filterTone}"`} />
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-auto pb-6">
+                  <ScrollArea className="h-full pr-2">
+                    <ul className="space-y-1">
+                      <NoResultsBoundary fallback={<p className="text-center text-sm text-muted-foreground p-4">No effects found.</p>}>
+                        <Hits<AlgoliaSoundEffectHit>
+                          hitComponent={(props) =>
+                            <SoundEffectHitItem
+                              hit={props.hit}
+                              onSelect={handleSelectSoundForInstance}
+                              onPreview={handlePreviewEffect}
+                            />
+                          }
+                        />
+                      </NoResultsBoundary>
+                    </ul>
+                  </ScrollArea>
+                </CardContent>
+              </InstantSearch>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                    <CardHeader>
+                        <CardTitle>Sound Library Disabled</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground text-sm">
+                            Please set up an Algolia account and add your keys to the <code>.env</code> file to enable the sound library.
+                        </p>
+                        <p className="text-xs mt-2 text-muted-foreground">
+                          You'll need <code>NEXT_PUBLIC_ALGOLIA_APP_ID</code>, <code>NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY</code>, and <code>NEXT_PUBLIC_ALGOLIA_INDEX_NAME</code>.
+                        </p>
+                        <p className="text-xs mt-2 text-muted-foreground">
+                          After adding the keys, run `npm run algolia:index`.
+                        </p>
+                    </CardContent>
+                </div>
+            )}
+          </Card>
         </div>
       </div>
     </div>

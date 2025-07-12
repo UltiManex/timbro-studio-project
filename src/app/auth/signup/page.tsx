@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
 import { TRIAL_DAYS, TRIAL_PROCESSING_MINUTES } from '@/lib/constants';
+import { Loader2 } from 'lucide-react';
 
 const signupSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -101,6 +102,7 @@ export default function SignupPage() {
                 )}
               />
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {form.formState.isSubmitting ? 'Creating Account...' : 'Create Account'}
               </Button>
               <Button variant="outline" className="w-full" type="button">
