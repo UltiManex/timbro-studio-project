@@ -79,8 +79,8 @@ export default function BillingPage() {
             </CardHeader>
             <CardContent className="flex-grow">
               <ul className="space-y-2 text-sm">
-                {plan.features.map((feature, i) => (
-                  <li key={i} className="flex items-start">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-start">
                     <CheckCircle2 className="h-5 w-5 text-green-500 mr-2 shrink-0 mt-0.5" />
                     <span>{feature}</span>
                   </li>
