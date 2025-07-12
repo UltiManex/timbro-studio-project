@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -84,7 +85,7 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
         </DialogHeader>
         
         <div className="py-4 space-y-4">
-            <Progress value={progressPercentage} className="w-full" />
+            <Progress value={progressPercentage} className="w-full" aria-label={`Onboarding progress, ${Math.round(progressPercentage)}% complete`} />
             <ul className="space-y-3">
                 {steps.map((step, index) => (
                 <li key={step.id} className={`flex items-center p-3 rounded-md transition-all ${index === currentStepIndex ? 'bg-primary/10 border border-primary/50' : 'bg-muted/50'}`}>
