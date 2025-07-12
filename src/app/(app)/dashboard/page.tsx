@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { mockProjects } from '@/lib/mock-data';
 import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
+import { toast } from '@/hooks/use-toast';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -168,9 +169,16 @@ export default function DashboardPage() {
   }, [projects]);
 
   const handleDeleteProject = (projectId: string) => {
+    const projectToDelete = projects.find(p => p.id === projectId);
     const updatedProjectsList = projects.filter(p => p.id !== projectId);
     updateProjects(updatedProjectsList);
-    // Add toast notification here
+
+    if (projectToDelete) {
+        toast({
+            title: "Project Deleted",
+            description: `"${projectToDelete.name}" has been removed.`,
+        });
+    }
   };
 
   const handleProjectClick = (project: Project) => {
