@@ -19,6 +19,7 @@ import { InstantSearch, SearchBox, Hits, Configure, useInstantSearch } from 'rea
 import algoliasearch from 'algoliasearch/lite';
 import { cn } from '@/lib/utils';
 import { generateWaveform } from '@/lib/waveform';
+import { getSoundEffects } from '@/lib/actions/sfx';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -144,16 +145,18 @@ export default function ProjectEditPage() {
         router.push('/dashboard');
     }
 
-    // Fetch sound library from server action (new)
-    // This is a placeholder for a proper server fetch.
+    // Fetch sound library from the server action
     const fetchLibrary = async () => {
-        const storedLibraryRaw = localStorage.getItem('timbro-sfx-library');
-        if (storedLibraryRaw) {
-             setSoundLibrary(JSON.parse(storedLibraryRaw));
-        } else {
-            // In a real app, this would be an API call
-            // For now, we simulate by checking local storage
-            console.warn("Sound effect library not found in local cache. This should be fetched from a server.");
+        try {
+            const effects = await getSoundEffects();
+            setSoundLibrary(effects);
+        } catch (error) {
+            console.error("Failed to fetch sound effect library:", error);
+            toast({
+                title: "Could Not Load Library",
+                description: "The sound effect library could not be loaded. Some features may not work correctly.",
+                variant: "destructive",
+            });
         }
     };
     fetchLibrary();
