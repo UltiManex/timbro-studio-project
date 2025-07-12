@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,6 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  // Use a ref to hold the latest projects array to prevent stale closures in useEffect
   const projectsRef = useRef(projects);
   projectsRef.current = projects;
 
@@ -66,18 +65,26 @@ export default function DashboardPage() {
 
   // Helper function to update projects in both state and localStorage
   const updateProjects = (updatedProjects: Project[]) => {
-    // First, update the React state with the full project data (including audioDataUri if present)
     setProjects(updatedProjects);
     try {
-      // Then, create a version for localStorage that EXCLUDES audioDataUri
+      // Create a version for localStorage that EXCLUDES audioDataUri
       const projectsToStore = updatedProjects.map(({ audioDataUri, ...rest }) => rest);
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(projectsToStore));
     } catch (error) {
       console.error("Failed to update projects in localStorage:", error);
     }
   };
-  
+
+  // Create a memoized dependency that only changes when the list of processing projects changes.
+  const processingProjectIds = useMemo(() => {
+    return projects
+      .filter(p => p.status === 'Processing')
+      .map(p => p.id)
+      .join(',');
+  }, [projects]);
+
   // This effect simulates a background worker queue for AI processing.
+  // It now only triggers when the list of processing projects changes.
   useEffect(() => {
     const projectsToProcess = projects.filter(
       p => p.status === 'Processing'
@@ -86,7 +93,6 @@ export default function DashboardPage() {
     if (projectsToProcess.length > 0) {
       projectsToProcess.forEach(async (project) => {
         
-        // Retrieve the audio data URI from the global in-memory store
         const newProjectAudioStore = (window as any).newProjectAudioStore || {};
         const audioDataUri = newProjectAudioStore[project.id];
         
@@ -95,7 +101,6 @@ export default function DashboardPage() {
           let transcript = project.transcript || '';
           
           if (!audioDataUri) {
-             // If data is not found, mark as error. This can happen on page reload.
              throw new Error(`Project ${project.id} is marked for processing, but its audio data is not available. Please re-upload.`);
           }
 
@@ -114,19 +119,15 @@ export default function DashboardPage() {
             }));
           }
           
-          // Before updating state, check if the project still exists (wasn't deleted while processing)
           const currentProjects = projectsRef.current;
           if (!currentProjects.some(p => p.id === project.id)) {
             console.log(`Project ${project.id} was deleted during processing. Aborting update.`);
-            // Clean up the in-memory store anyway
             delete newProjectAudioStore[project.id];
             return;
           }
 
-          // Create a new version of the project that includes the audioDataUri for the editor
           const projectWithAudio = { ...project, status: 'Ready for Review' as const, effects: aiSuggestions, transcript: transcript, audioDataUri: audioDataUri };
 
-          // Update the project in the main state and localStorage
           const updatedProjects = currentProjects.map(p =>
             p.id === project.id
               ? projectWithAudio
@@ -134,31 +135,26 @@ export default function DashboardPage() {
           );
           updateProjects(updatedProjects);
           
-          // Clean up the in-memory store
           delete newProjectAudioStore[project.id];
 
         } catch (e) {
           console.error(`AI processing failed for project ${project.id}:`, e);
           
-           // Before updating state, check if the project still exists
            const currentProjects = projectsRef.current;
            if (!currentProjects.some(p => p.id === project.id)) {
              console.log(`Project ${project.id} was deleted during processing. Aborting error update.`);
-             // Clean up the in-memory store anyway
             if (newProjectAudioStore[project.id]) {
                 delete newProjectAudioStore[project.id];
             }
              return;
            }
 
-          // Update the project to an 'Error' state
           const updatedProjects = currentProjects.map(p =>
             p.id === project.id
               ? { ...p, status: 'Error' as const }
               : p
           );
           updateProjects(updatedProjects);
-           // Clean up the in-memory store
           if (newProjectAudioStore[project.id]) {
             delete newProjectAudioStore[project.id];
           }
@@ -166,7 +162,7 @@ export default function DashboardPage() {
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects]);
+  }, [processingProjectIds]);
 
   const handleDeleteProject = (projectId: string) => {
     const projectToDelete = projects.find(p => p.id === projectId);
@@ -182,10 +178,6 @@ export default function DashboardPage() {
   };
 
   const handleProjectClick = (project: Project) => {
-    // When a project card is clicked, we store the full project object
-    // (including the potentially available audioDataUri from the state)
-    // in session storage before navigating. The editor page will then
-    // prioritize loading from session storage.
     try {
       sessionStorage.setItem(`timbro-active-project-${project.id}`, JSON.stringify(project));
     } catch (e) {
