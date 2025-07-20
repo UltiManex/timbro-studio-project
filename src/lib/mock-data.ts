@@ -10,9 +10,7 @@ export const mockProjects: Project[] = [
 
 // This library is now stored in Firestore and will be removed from here.
 // It's kept temporarily for the seeding script.
-// IMPORTANT: The URLs below are placeholders. For the seeding script to work, 
-// you must replace "timbro-instant-audio-drama.appspot.com" with your actual Firebase Storage bucket
-// and include the correct access token for each file.
+// The URLs have been updated to reflect the actual files in Firebase Storage.
 export const mockSoundEffectsLibrary: SoundEffect[] = [
   { id: 'sfx_001', name: 'Comical Boing', tags: ['boing', 'jump', 'funny'], tone: ['Comedic'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Fcomical-boing.mp3?alt=media' },
   { id: 'sfx_002', name: 'Dramatic Swell', tags: ['swell', 'tension', 'reveal'], tone: ['Dramatic', 'Suspenseful'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Fdramatic-swell.mp3?alt=media' },
@@ -21,7 +19,7 @@ export const mockSoundEffectsLibrary: SoundEffect[] = [
   { id: 'sfx_005', name: 'Sad Trombone', tags: ['fail', 'wah-wah', 'funny'], tone: ['Comedic'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Fsad-trombone.mp3?alt=media' },
   { id: 'sfx_006', name: 'Heartbeat', tags: ['heart', 'pulse', 'tense'], tone: ['Suspenseful', 'Dramatic'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Fheartbeat.mp3?alt=media' },
   { id: 'sfx_007', name: 'Record Scratch', tags: ['stop', 'interrupt', 'funny'], tone: ['Comedic'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Frecord-scratch.mp3?alt=media' },
-  { id: 'sfx_008', name: 'Inspiring Piano Chord', tags: ['piano', 'hopeful', 'positive'], tone: ['Inspirational'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Finspiring-piano-chord.mp3?alt=media' },
+  { id: 'sfx_008', name: 'Inspiring Piano Chord', tags: ['piano', 'hopeful', 'positive'], tone: ['Inspirational'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Finspiring-chord.mp3?alt=media' },
 ];
 
 export const mockAISuggestions: SoundEffectInstance[] = [
