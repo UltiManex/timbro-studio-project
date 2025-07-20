@@ -1,20 +1,53 @@
 // scripts/seed-sfx.ts
 import { db } from '../src/lib/firebase-admin';
-import { mockSoundEffectsLibrary } from '../src/lib/mock-data'; // We'll read from here one last time
+import { mockSoundEffectsLibrary } from '../src/lib/mock-data';
 import type { SoundEffect } from '../src/lib/types';
 
+async function deleteCollection(collectionRef: FirebaseFirestore.CollectionReference, batchSize: number) {
+  const query = collectionRef.orderBy('__name__').limit(batchSize);
+
+  return new Promise((resolve, reject) => {
+    deleteQueryBatch(query, resolve).catch(reject);
+  });
+}
+
+async function deleteQueryBatch(query: FirebaseFirestore.Query, resolve: (value: unknown) => void) {
+  const snapshot = await query.get();
+
+  const batchSize = snapshot.size;
+  if (batchSize === 0) {
+    // When there are no documents left, we are done
+    resolve(true);
+    return;
+  }
+
+  // Delete documents in a batch
+  const batch = db.batch();
+  snapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+
+  // Recurse on the next process tick, to avoid
+  // exploding the stack.
+  process.nextTick(() => {
+    deleteQueryBatch(query, resolve);
+  });
+}
+
+
 async function seedSoundEffects() {
-  console.log('Starting to seed sound_effects collection in Firestore...');
+  console.log('Starting to reset and re-seed sound_effects collection...');
   const sfxCollection = db.collection('sound_effects');
 
   try {
-    const snapshot = await sfxCollection.limit(1).get();
-    if (!snapshot.empty) {
-      console.log('sound_effects collection already contains data. Skipping seed.');
-      return;
-    }
+    // Delete all existing documents in the collection
+    console.log('Deleting existing sound effects...');
+    await deleteCollection(sfxCollection, 50);
+    console.log('Existing sound effects deleted successfully.');
 
-    console.log(`Seeding ${mockSoundEffectsLibrary.length} sound effects...`);
+    // Seed with new data
+    console.log(`Seeding ${mockSoundEffectsLibrary.length} new sound effects...`);
     const batch = db.batch();
 
     mockSoundEffectsLibrary.forEach((sfx: SoundEffect) => {
@@ -26,7 +59,7 @@ async function seedSoundEffects() {
     await batch.commit();
     console.log('Successfully seeded sound_effects collection.');
   } catch (error) {
-    console.error('Error seeding Firestore sound_effects:', error);
+    console.error('Error resetting Firestore sound_effects:', error);
     process.exit(1);
   }
 }
