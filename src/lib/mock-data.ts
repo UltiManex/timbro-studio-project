@@ -21,7 +21,7 @@ export const mockSoundEffectsLibrary: SoundEffect[] = [
   { id: 'sfx_005', name: 'Sad Trombone', tags: ['fail', 'wah-wah', 'funny'], tone: ['Comedic'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Fsad-trombone.mp3?alt=media' },
   { id: 'sfx_006', name: 'Heartbeat', tags: ['heart', 'pulse', 'tense'], tone: ['Suspenseful', 'Dramatic'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Fheartbeat.mp3?alt=media' },
   { id: 'sfx_007', name: 'Record Scratch', tags: ['stop', 'interrupt', 'funny'], tone: ['Comedic'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Frecord-scratch.mp3?alt=media' },
-  { id: 'sfx_008', name: 'Inspiring Piano Chord', tags: ['piano', 'hopeful', 'positive'], tone: ['Inspirational'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Finspiring-chord.mp3?alt=media' },
+  { id: 'sfx_008', name: 'Inspiring Piano Chord', tags: ['piano', 'hopeful', 'positive'], tone: ['Inspirational'], previewUrl: 'https://firebasestorage.googleapis.com/v0/b/timbro-instant-audio-drama.appspot.com/o/sound-effects%2Finspiring-piano-chord.mp3?alt=media' },
 ];
 
 export const mockAISuggestions: SoundEffectInstance[] = [
