@@ -14,7 +14,8 @@
     "algolia:index": "tsx scripts/index-algolia.ts",
     "firestore:seed": "tsx scripts/seed-db.ts",
     "firestore:seed:sfx": "tsx scripts/seed-sfx.ts",
-    "storage:cors": "tsx scripts/set-storage-cors.ts"
+    "storage:cors": "tsx scripts/set-storage-cors.ts",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

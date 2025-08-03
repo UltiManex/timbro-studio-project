@@ -26,6 +26,17 @@ const nextConfig: NextConfig = {
     // Default is 60s. This sets it to 5 minutes.
     executionTimeout: 300, 
   },
+  webpack: (config, { isServer }) => {
+    // This is to prevent a build error with the @ffmpeg-installer/ffmpeg package.
+    // It tells Webpack to not bundle this package and treat it as an external module.
+    if (isServer) {
+      config.externals.push({
+        '@ffmpeg-installer/ffmpeg': 'commonjs @ffmpeg-installer/ffmpeg',
+      });
+    }
+
+    return config;
+  },
 };
 
 export default withSentryConfig(
