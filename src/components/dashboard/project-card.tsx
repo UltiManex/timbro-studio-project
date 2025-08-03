@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, Edit3, Trash2, Download, Play, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import type { Project } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
+import { downloadFile } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 interface ProjectCardProps {
   project: Project;
@@ -17,6 +20,8 @@ interface ProjectCardProps {
 }
 
 export function ProjectCard({ project, onDelete, onProjectClick }: ProjectCardProps) {
+  const [isDownloading, setIsDownloading] = useState(false);
+
   const getStatusBadgeVariant = (status: Project['status']): 'default' | 'secondary' | 'destructive' | 'outline' => {
     switch (status) {
       case 'Completed':
@@ -48,8 +53,8 @@ export function ProjectCard({ project, onDelete, onProjectClick }: ProjectCardPr
   }
 
   const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Prevent navigation if the dropdown menu trigger was clicked.
-    if ((e.target as HTMLElement).closest('[data-radix-dropdown-menu-trigger]')) {
+    // Prevent navigation if a button or dropdown was clicked.
+    if ((e.target as HTMLElement).closest('button, [role="menuitem"]')) {
       return;
     }
     onProjectClick(project);
@@ -59,6 +64,26 @@ export function ProjectCard({ project, onDelete, onProjectClick }: ProjectCardPr
     e.stopPropagation(); // Prevent card click handler from firing
     onProjectClick(project);
   };
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click handler from firing
+    if (!project.finalAudioUrl) {
+      toast({ title: 'Download failed', description: 'No download URL available.', variant: 'destructive'});
+      return;
+    }
+
+    setIsDownloading(true);
+    toast({ title: 'Starting Download...', description: `${project.name}.mp3` });
+
+    try {
+      await downloadFile(project.finalAudioUrl, `${project.name}.mp3`);
+    } catch (error: any) {
+      toast({ title: 'Download Error', description: error.message || 'An unknown error occurred.', variant: 'destructive' });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
 
   return (
     <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col cursor-pointer" onClick={handleCardClick}>
@@ -88,11 +113,9 @@ export function ProjectCard({ project, onDelete, onProjectClick }: ProjectCardPr
               {project.status === 'Completed' && project.finalAudioUrl && (
                  <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <a href={project.finalAudioUrl} download={`${project.name}.mp3`} className="flex items-center">
-                      <Download className="mr-2 h-4 w-4" />
-                      Download
-                    </a>
+                  <DropdownMenuItem onClick={handleDownload} disabled={isDownloading} className="flex items-center">
+                    {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                    {isDownloading ? 'Downloading...' : 'Download'}
                   </DropdownMenuItem>
                  </>
               )}
@@ -127,11 +150,9 @@ export function ProjectCard({ project, onDelete, onProjectClick }: ProjectCardPr
             </Link>
           </Button>
         ) : project.status === 'Completed' ? (
-           <Button asChild variant="outline" className="w-full" size="sm" disabled={!project.finalAudioUrl} onClick={(e) => e.stopPropagation()}>
-            <a href={project.finalAudioUrl || '#'} download={`${project.name}.mp3`} aria-disabled={!project.finalAudioUrl}>
-              <Download className="mr-2 h-4 w-4" />
-              Download MP3
-            </a>
+           <Button variant="outline" className="w-full" size="sm" disabled={!project.finalAudioUrl || isDownloading} onClick={handleDownload}>
+            {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            {isDownloading ? 'Downloading...' : 'Download MP3'}
           </Button>
         ) : (
           <Button variant="outline" disabled className="w-full" size="sm">
