@@ -121,7 +121,7 @@ const mixAudioFlow = ai.defineFlow(
       const mixInputs = ['[0:a]', ...downloadedEffects.map((_, i) => `[sfx${i}]`)].join('');
       const complexFilter = [
         ...effectFilters,
-        `${mixInputs}amix=inputs=${effects.length + 1}[out]`
+        `${mixInputs}amix=inputs=${downloadedEffects.length + 1}[out]`
       ].join('; ');
 
       console.log(`[${projectId}] Using FFmpeg filter: ${complexFilter}`);

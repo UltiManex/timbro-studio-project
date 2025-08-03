@@ -367,28 +367,29 @@ export default function ProjectEditPage() {
   };
 
   const handleExport = async () => {
-    if (!project || !project.audioUrl || !project.effects) {
-        toast({ title: "Cannot Export", description: "Project data is incomplete.", variant: "destructive" });
+    if (!project || !project.audioUrl) {
+        toast({ title: "Cannot Export", description: "Project data is incomplete or the initial audio has not been uploaded yet.", variant: "destructive" });
+        return;
+    }
+     if (!project.effects || project.effects.some(e => !e.effectId)) {
+        toast({ title: "Cannot Export", description: "One or more effect markers on the timeline have not been assigned a sound. Please assign a sound to all markers before exporting.", variant: "destructive" });
         return;
     }
 
+
     setIsExporting(true);
-    toast({ title: "Export Started", description: "Your audio is being mixed on our servers. This may take a few moments. You will be notified upon completion." });
+    toast({ title: "Export Started", description: "Your audio is being mixed on our servers. This may take a few moments." });
 
     try {
         const result = await mixAudio({
             projectId: project.id,
             mainAudioUrl: project.audioUrl,
-            effects: project.effects.map(({ effectId, timestamp, volume }) => ({
-                effectId,
-                timestamp,
-                volume,
-            })),
+            effects: project.effects.map(({ id, isUserAdded, ...rest }) => rest),
         });
 
         if (result.finalAudioUrl) {
             updateProject({ status: 'Completed', finalAudioUrl: result.finalAudioUrl });
-            toast({ title: "Export Complete!", description: "Your audio is ready for download from the dashboard.", duration: 8000 });
+            toast({ title: "Export Complete!", description: "Your audio is ready. You will be redirected to the dashboard.", duration: 8000 });
             router.push('/dashboard');
         } else {
             throw new Error("The mixing process did not return a final URL.");
