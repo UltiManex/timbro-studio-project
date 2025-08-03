@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 
@@ -18,6 +19,12 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+   serverActions: {
+    bodySizeLimit: '25mb', // Default is 1mb, increase for audio data
+    // Increase the timeout for long-running actions like audio mixing.
+    // Default is 60s. This sets it to 5 minutes.
+    executionTimeout: 300, 
   },
 };
 

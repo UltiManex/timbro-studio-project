@@ -20,6 +20,7 @@ import algoliasearch from 'algoliasearch/lite';
 import { cn } from '@/lib/utils';
 import { generateWaveform } from '@/lib/waveform';
 import { getSoundEffects } from '@/lib/actions/sfx';
+import { mixAudio } from '@/ai/flows/mix-audio';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -366,14 +367,45 @@ export default function ProjectEditPage() {
   };
 
   const handleExport = async () => {
+    if (!project || !project.audioUrl || !project.effects) {
+        toast({ title: "Cannot Export", description: "Project data is incomplete.", variant: "destructive" });
+        return;
+    }
+
     setIsExporting(true);
-    toast({ title: "Export Started", description: "Your audio is being mixed. You'll be notified upon completion." });
-    await new Promise(resolve => setTimeout(resolve, 5000)); 
-    updateProject({ status: 'Completed', finalAudioUrl: '#mock-download-link' });
-    setIsExporting(false);
-    toast({ title: "Export Complete!", description: "Your audio is ready for download from the dashboard." });
-    router.push('/dashboard');
-  };
+    toast({ title: "Export Started", description: "Your audio is being mixed on our servers. This may take a few moments. You will be notified upon completion." });
+
+    try {
+        const result = await mixAudio({
+            projectId: project.id,
+            mainAudioUrl: project.audioUrl,
+            effects: project.effects.map(({ effectId, timestamp, volume }) => ({
+                effectId,
+                timestamp,
+                volume,
+            })),
+        });
+
+        if (result.finalAudioUrl) {
+            updateProject({ status: 'Completed', finalAudioUrl: result.finalAudioUrl });
+            toast({ title: "Export Complete!", description: "Your audio is ready for download from the dashboard.", duration: 8000 });
+            router.push('/dashboard');
+        } else {
+            throw new Error("The mixing process did not return a final URL.");
+        }
+    } catch (error: any) {
+        console.error("Export failed:", error);
+        toast({ 
+            title: "Export Failed", 
+            description: error.message || "An unexpected error occurred during mixing.", 
+            variant: "destructive",
+            duration: 10000,
+        });
+        updateProject({ status: 'Error' });
+    } finally {
+        setIsExporting(false);
+    }
+};
 
   // Set the audio source when the project data is available
   useEffect(() => {
