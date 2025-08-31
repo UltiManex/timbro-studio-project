@@ -72,8 +72,8 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     resolver: zodResolver(projectSchema),
     defaultValues: {
       projectName: '',
-      selectedTone: 'All',
-      defaultEffectPlacement: AVAILABLE_EFFECT_PLACEMENTS[0].value, // Default to AI-Optimized
+      // selectedTone is intentionally left undefined to force user selection.
+      defaultEffectPlacement: AVAILABLE_EFFECT_PLACEMENTS[0].value,
     },
   });
   
@@ -248,13 +248,12 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
             <Controller
               control={form.control}
               name="selectedTone"
-              defaultValue="All"
               render={({ field }) => (
                 <>
                   <Label htmlFor="selectedTone">Analysis Tone</Label>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger id="selectedTone" className="w-full mt-1">
-                      <SelectValue placeholder="Choose AI analysis tone" />
+                      <SelectValue placeholder="Select a Tone" />
                     </SelectTrigger>
                     <SelectContent>
                       {AVAILABLE_TONES.map((tone) => (
