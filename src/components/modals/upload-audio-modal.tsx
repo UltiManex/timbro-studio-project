@@ -15,7 +15,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { AVAILABLE_TONES, MAX_AUDIO_FILE_SIZE_BYTES, MAX_AUDIO_FILE_SIZE_MB, ALLOWED_AUDIO_TYPES, AVAILABLE_EFFECT_PLACEMENTS } from '@/lib/constants';
 import type { Tone, DefaultEffectPlacement, Project } from '@/lib/types';
-import { UploadCloud, FileAudio, X, Loader2, Terminal } from 'lucide-react';
+import { UploadCloud, FileAudio, X, Loader2, Terminal, Sparkles } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { TrustBadgeIcon, ToneIcon } from '@/components/icons';
 import { mockTranscript } from '@/lib/mock-data';
@@ -72,6 +72,7 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
     resolver: zodResolver(projectSchema),
     defaultValues: {
       projectName: '',
+      selectedTone: 'All',
       defaultEffectPlacement: AVAILABLE_EFFECT_PLACEMENTS[0].value, // Default to AI-Optimized
     },
   });
@@ -258,8 +259,8 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
                       {AVAILABLE_TONES.map((tone) => (
                         <SelectItem key={tone} value={tone}>
                            <div className="flex items-center">
-                            <ToneIcon tone={tone as Tone} className="mr-2 h-5 w-5" />
-                            {tone}
+                            {tone === 'All' ? <Sparkles className="mr-2 h-5 w-5" /> : <ToneIcon tone={tone as 'Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational'} className="mr-2 h-5 w-5" />}
+                            {tone === 'All' ? 'All Effects (Flexible)' : tone}
                           </div>
                         </SelectItem>
                       ))}

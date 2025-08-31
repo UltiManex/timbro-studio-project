@@ -1,4 +1,4 @@
-export type Tone = 'Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational';
+export type Tone = 'Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational' | 'All';
 
 export type DefaultEffectPlacement = 'ai-optimized' | 'manual-only';
 
@@ -23,7 +23,7 @@ export interface SoundEffect {
   id: string;
   name:string;
   tags: string[];
-  tone: Tone[]; // Can belong to multiple tones
+  tone: ('Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational')[]; // Specific tones for an effect
   previewUrl: string; // URL to preview the sound effect
 }
 

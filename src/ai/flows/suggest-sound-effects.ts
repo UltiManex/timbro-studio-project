@@ -10,7 +10,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 import type { SoundEffect } from '@/lib/types';
 import { db } from '@/lib/firebase-admin';
 
@@ -38,8 +38,8 @@ const SuggestSoundEffectsInputSchema = z.object({
     .string()
     .describe("The audio file to be analyzed, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
   selectedTone: z
-    .enum(['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational'])
-    .describe('The tone selected by the user to guide the sound effect suggestions.'),
+    .enum(['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational', 'All'])
+    .describe('The tone selected by the user to guide the sound effect suggestions. If "All", the AI should use its best judgment from the entire library.'),
   audioDuration: z.number().describe('The total duration of the audio in seconds.'),
 });
 export type SuggestSoundEffectsInput = z.infer<typeof SuggestSoundEffectsInputSchema>;
@@ -60,7 +60,7 @@ const prompt = ai.definePrompt({
   name: 'suggestSoundEffectsPrompt',
   input: {schema: z.object({
     ...SuggestSoundEffectsInputSchema.shape,
-     availableEffects: z.array(z.object({ // Add availableEffects back for the prompt context only
+     availableEffects: z.array(z.object({
       id: z.string(),
       name: z.string(),
       tags: z.array(z.string()),
@@ -73,7 +73,13 @@ const prompt = ai.definePrompt({
 Follow this multi-step process:
 1.  **Transcribe the Audio**: First, create a complete and accurate text transcript of the provided audio file.
 2.  **Analyze the Transcript**: Read through the transcript you just generated. Identify key moments, emotional shifts, punchlines, actions, or phrases that would be enhanced by a sound effect. For example, look for jokes, moments of tension, dramatic pauses, or inspiring statements.
-3.  **Map Moments to Sound Effects**: For each key moment you identify, select the most appropriate sound effect from the 'availableEffects' library. Your choice should be guided by the moment's context and the user's overall 'selectedTone'. For example, if the tone is 'Comedic' and the transcript has a punchline, a "Comical Boing" would be a good choice. If the tone is 'Dramatic' and there's a major reveal, "Dramatic Swell" would be fitting.
+3.  **Map Moments to Sound Effects**: For each key moment you identify, select the most appropriate sound effect from the 'availableEffects' library. 
+    {{#ifnoteq selectedTone "All"}}
+    Your choice MUST be guided by the user's overall 'selectedTone' of '{{{selectedTone}}}'. Only use effects that have '{{{selectedTone}}}' in their 'tone' array.
+    {{/ifnoteq}}
+    {{#ifeq selectedTone "All"}}
+    The user has selected "All" for the tone, giving you creative freedom. Use your expert judgment to select the best effect from the entire library that fits the moment, regardless of its assigned tone.
+    {{/ifeq}}
 4.  **Determine Timestamp**: Place each chosen sound effect at the precise timestamp where the corresponding moment occurs in the audio.
 
 RULES:

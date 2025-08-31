@@ -1,6 +1,6 @@
 import { Tone, DefaultEffectPlacement } from './types';
 
-export const AVAILABLE_TONES: Tone[] = ['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational'];
+export const AVAILABLE_TONES: Tone[] = ['All', 'Comedic', 'Dramatic', 'Suspenseful', 'Inspirational'];
 
 export const AVAILABLE_EFFECT_PLACEMENTS: { value: DefaultEffectPlacement; label: string; description?: string }[] = [
   { value: 'ai-optimized', label: 'AI-Optimized (Recommended)', description: "Let Timbro's AI place initial effects for you to review." },
