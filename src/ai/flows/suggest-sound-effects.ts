@@ -98,6 +98,17 @@ Here is the information for your task:
 
 Now, based on your expert analysis, generate the JSON output containing the full transcript and the list of intelligent sound effect suggestions.
 `,
+  config: {
+    // Register the custom ifnoteq helper
+    customHbsHelpers: {
+      ifnoteq: function (a: any, b: any, options: any) {
+        if (a !== b) {
+          return options.fn(this);
+        }
+        return options.inverse(this);
+      },
+    },
+  },
 });
 
 const suggestSoundEffectsFlow = ai.defineFlow(

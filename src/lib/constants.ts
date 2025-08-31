@@ -1,3 +1,4 @@
+
 import { Tone, DefaultEffectPlacement } from './types';
 
 export const AVAILABLE_TONES: Tone[] = ['All', 'Comedic', 'Dramatic', 'Suspenseful', 'Inspirational'];

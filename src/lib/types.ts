@@ -1,3 +1,4 @@
+
 export type Tone = 'Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational' | 'All';
 
 export type DefaultEffectPlacement = 'ai-optimized' | 'manual-only';
