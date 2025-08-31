@@ -248,10 +248,11 @@ export function UploadAudioModal({ isOpen, onOpenChange, onProjectCreated }: Upl
             <Controller
               control={form.control}
               name="selectedTone"
+              defaultValue="All"
               render={({ field }) => (
                 <>
                   <Label htmlFor="selectedTone">Analysis Tone</Label>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger id="selectedTone" className="w-full mt-1">
                       <SelectValue placeholder="Choose AI analysis tone" />
                     </SelectTrigger>
