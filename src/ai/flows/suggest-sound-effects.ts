@@ -3,6 +3,7 @@
 
 /**
  * @fileOverview An AI agent that transcribes audio and suggests relevant sound effects based on the selected tone.
+ * It can process an initial upload (data URI) or re-process an existing audio file (URL).
  *
  * - suggestSoundEffects - A function that handles the sound effect suggestion process.
  * - SuggestSoundEffectsInput - The input type for the suggestSoundEffects function.
@@ -36,12 +37,21 @@ const SoundEffectSuggestionSchema = z.object({
 const SuggestSoundEffectsInputSchema = z.object({
   audioDataUri: z
     .string()
-    .describe("The audio file to be analyzed, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+    .optional()
+    .describe("The audio file to be analyzed, as a data URI. Used for initial processing."),
+  audioUrl: z
+    .string()
+    .url()
+    .optional()
+    .describe("A URL to the audio file. Used for re-processing."),
   selectedTone: z
     .enum(['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational', 'All'])
     .describe('The tone selected by the user to guide the sound effect suggestions. If "All", the AI should use its best judgment from the entire library.'),
   audioDuration: z.number().describe('The total duration of the audio in seconds.'),
+}).refine(data => data.audioDataUri || data.audioUrl, {
+  message: "Either audioDataUri or audioUrl must be provided.",
 });
+
 export type SuggestSoundEffectsInput = z.infer<typeof SuggestSoundEffectsInputSchema>;
 
 const SuggestSoundEffectsOutputSchema = z.object({
@@ -94,7 +104,7 @@ Follow this multi-step process:
 - The 'timestamp' for each effect MUST be a number in seconds and MUST NOT exceed the 'audioDuration'. Do not place all effects at the start; they should be distributed logically throughout the audio timeline according to your analysis.
 
 Here is the information for your task:
-- Audio File to Analyze: {{media url=audioDataUri}}
+- Audio File to Analyze: {{#if audioDataUri}}{{media url=audioDataUri}}{{else}}{{media url=audioUrl}}{{/if}}
 - Selected Overall Tone: {{{selectedTone}}}
 - Audio Duration: {{{audioDuration}}} seconds.
 - Available Sound Effects Library (JSON):

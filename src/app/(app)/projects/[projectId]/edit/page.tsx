@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import type { Project, SoundEffect, SoundEffectInstance, Tone } from '@/lib/types';
 import { AVAILABLE_TONES, EDITOR_NUDGE_INCREMENT_MS } from '@/lib/constants';
-import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2 } from 'lucide-react';
+import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2, Sparkles } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
 import { Slider } from '@/components/ui/slider';
 import { InstantSearch, SearchBox, Hits, Configure, useInstantSearch } from 'react-instantsearch-hooks-web';
@@ -21,6 +21,8 @@ import { cn } from '@/lib/utils';
 import { generateWaveform } from '@/lib/waveform';
 import { getSoundEffects } from '@/lib/actions/sfx';
 import { mixAudio } from '@/ai/flows/mix-audio';
+import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
+import { ReanalyzeModal } from '@/components/modals/reanalyze-modal';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -91,6 +93,8 @@ export default function ProjectEditPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [filterTone, setFilterTone] = useState<Tone | 'All'>('All');
   const [isExporting, setIsExporting] = useState(false);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [isReanalyzeModalOpen, setIsReanalyzeModalOpen] = useState(false);
   const [waveform, setWaveform] = useState<number[]>([]);
   
   const audioDuration = project?.duration || 0; 
@@ -408,6 +412,55 @@ export default function ProjectEditPage() {
     }
 };
 
+ const handleReanalyze = async (newTone: Tone) => {
+    if (!project || !project.audioUrl || !project.duration) {
+      toast({ title: "Cannot Re-analyze", description: "Project data is incomplete.", variant: "destructive" });
+      return;
+    }
+    
+    setIsReanalyzing(true);
+    toast({ title: "Re-analysis Started", description: `Reworking suggestions with a ${newTone} tone...` });
+
+    try {
+      const response = await suggestSoundEffects({
+        audioUrl: project.audioUrl,
+        selectedTone: newTone,
+        audioDuration: project.duration,
+      });
+      
+      // Preserve user-added effects
+      const userAddedEffects = project.effects?.filter(e => e.isUserAdded) || [];
+      
+      // Create new instances for the new AI suggestions
+      const newAiSuggestions = (response.soundEffectSuggestions || []).map(suggestion => ({
+        ...suggestion,
+        id: `ai_inst_${Date.now()}_${Math.random()}`
+      }));
+      
+      const newEffects = [...userAddedEffects, ...newAiSuggestions];
+      
+      // Update the project state with new effects, transcript, and selected tone
+      updateProject({
+        effects: newEffects,
+        transcript: response.transcript,
+        selectedTone: newTone,
+      });
+
+      toast({ title: "Re-analysis Complete!", description: "Your project has been updated with new suggestions." });
+
+    } catch (error: any) {
+      console.error("Re-analysis failed:", error);
+      toast({ 
+          title: "Re-analysis Failed", 
+          description: error.message || "An unexpected error occurred during re-analysis.", 
+          variant: "destructive",
+      });
+    } finally {
+      setIsReanalyzing(false);
+    }
+  };
+
+
   // Set the audio source when the project data is available
   useEffect(() => {
     const audioSource = project?.audioDataUri || project?.audioUrl;
@@ -428,6 +481,15 @@ export default function ProjectEditPage() {
   const audioSource = project.audioDataUri || project.audioUrl;
 
   return (
+    <>
+    <ReanalyzeModal
+        isOpen={isReanalyzeModalOpen}
+        onOpenChange={setIsReanalyzeModalOpen}
+        currentTone={project.selectedTone}
+        isReanalyzing={isReanalyzing}
+        onConfirm={handleReanalyze}
+      />
+
     <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden">
       <audio 
         ref={mainAudioRef}
@@ -455,9 +517,13 @@ export default function ProjectEditPage() {
       <div className="flex items-center justify-between p-4 border-b bg-card">
         <div>
           <h1 className="text-xl font-semibold font-headline">{project.name}</h1>
-          <p className="text-sm text-muted-foreground">Editing project...</p>
+          <p className="text-sm text-muted-foreground">Current Tone: {project.selectedTone}</p>
         </div>
         <div className="flex items-center gap-2">
+           <Button variant="outline" size="sm" onClick={() => setIsReanalyzeModalOpen(true)} disabled={isReanalyzing}>
+            {isReanalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            Re-Analyze
+          </Button>
           <Button variant="outline" size="sm" onClick={handleSaveProject}><Save className="mr-2 h-4 w-4" />Save Project</Button>
           <Button size="sm" onClick={handleExport} disabled={isExporting}>
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
@@ -674,5 +740,6 @@ export default function ProjectEditPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
