@@ -96,6 +96,7 @@ export default function ProjectEditPage() {
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [isReanalyzeModalOpen, setIsReanalyzeModalOpen] = useState(false);
   const [waveform, setWaveform] = useState<number[]>([]);
+  const [preReanalysisEffects, setPreReanalysisEffects] = useState<SoundEffectInstance[] | null>(null);
   
   const audioDuration = project?.duration || 0; 
   const effects = project?.effects || [];
@@ -418,6 +419,9 @@ export default function ProjectEditPage() {
       return;
     }
     
+    // Save the current state for potential revert
+    setPreReanalysisEffects(project.effects || []);
+
     setIsReanalyzing(true);
     toast({ title: "Re-analysis Started", description: `Reworking suggestions with a ${newTone} tone...` });
 
@@ -428,25 +432,20 @@ export default function ProjectEditPage() {
         audioDuration: project.duration,
       });
       
-      // Preserve user-added effects
       const userAddedEffects = project.effects?.filter(e => e.isUserAdded) || [];
-      
-      // Create new instances for the new AI suggestions
       const newAiSuggestions = (response.soundEffectSuggestions || []).map(suggestion => ({
         ...suggestion,
         id: `ai_inst_${Date.now()}_${Math.random()}`
       }));
-      
       const newEffects = [...userAddedEffects, ...newAiSuggestions];
       
-      // Update the project state with new effects, transcript, and selected tone
       updateProject({
         effects: newEffects,
         transcript: response.transcript,
         selectedTone: newTone,
       });
 
-      toast({ title: "Re-analysis Complete!", description: "Your project has been updated with new suggestions." });
+      toast({ title: "Re-analysis Complete!", description: "Review the new suggestions. You can revert this change until you close this dialog." });
 
     } catch (error: any) {
       console.error("Re-analysis failed:", error);
@@ -455,9 +454,27 @@ export default function ProjectEditPage() {
           description: error.message || "An unexpected error occurred during re-analysis.", 
           variant: "destructive",
       });
+      // On failure, clear the "revert" state
+      setPreReanalysisEffects(null);
     } finally {
       setIsReanalyzing(false);
     }
+  };
+
+  const handleRevertChanges = () => {
+    if (project && preReanalysisEffects) {
+      updateProject({ effects: preReanalysisEffects });
+      toast({ title: "Changes Reverted", description: "The previous sound effects have been restored." });
+    }
+    setPreReanalysisEffects(null);
+    setIsReanalyzeModalOpen(false);
+  };
+
+  const handleConfirmChanges = () => {
+    // "Commit" the changes by clearing the revert state
+    setPreReanalysisEffects(null);
+    setIsReanalyzeModalOpen(false);
+    toast({ title: "Changes Confirmed", description: "Your project has been updated." });
   };
 
 
@@ -484,10 +501,19 @@ export default function ProjectEditPage() {
     <>
     <ReanalyzeModal
         isOpen={isReanalyzeModalOpen}
-        onOpenChange={setIsReanalyzeModalOpen}
+        onOpenChange={(isOpen) => {
+            if (!isOpen) {
+                // If closing modal, always clear the revert state
+                setPreReanalysisEffects(null);
+            }
+            setIsReanalyzeModalOpen(isOpen);
+        }}
         currentTone={project.selectedTone}
         isReanalyzing={isReanalyzing}
-        onConfirm={handleReanalyze}
+        onInitiateReanalysis={handleReanalyze}
+        postReanalysis={preReanalysisEffects !== null}
+        onConfirmChanges={handleConfirmChanges}
+        onRevert={handleRevertChanges}
       />
 
     <div className="flex flex-col h-[calc(100vh-theme(spacing.28))] overflow-hidden">
