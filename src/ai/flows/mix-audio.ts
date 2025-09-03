@@ -125,33 +125,30 @@ const mixAudioFlow = ai.defineFlow(
         command.complexFilter(complexFilter, 'out');
 
       } else { // 'effects_only' mode
-        // Create a silent track with the same duration as the main audio to act as a base
-        const mainAudioDuration = await new Promise<number>((resolve, reject) => {
-            ffmpeg.ffprobe(mainAudioUrl, (err, metadata) => {
-                if (err) reject(err);
-                else resolve(metadata.format.duration || 0);
-            });
+        // In effects-only mode, we don't need the main audio.
+        // We will construct an FFmpeg command with only the sound effects as inputs.
+        
+        command = ffmpeg(); // Initialize an empty command
+        
+        // Add all downloaded effects as inputs to the command.
+        downloadedEffects.forEach(effect => {
+            command.input(effect.path);
         });
         
-        if (mainAudioDuration === 0) {
-            throw new Error("Could not determine the duration of the main audio track.");
-        }
-        
-        // Use the first effect as the base input for FFmpeg
-        command = ffmpeg(downloadedEffects[0].path);
-        // Add the rest of the effects
-        for(let i = 1; i < downloadedEffects.length; i++) {
-            command.input(downloadedEffects[i].path);
-        }
-        
+        // Create adelay and volume filters for each effect.
+        // The stream index now correctly starts from 0 for the effects.
         const effectFilters = downloadedEffects.map((effect, index) => {
-          const streamIn = index; // Effects are the only inputs
+          const streamIn = index; // The first effect is input 0, second is 1, etc.
           const streamOut = `sfx${index}`;
           const delayMs = effect.timestamp * 1000;
           return `[${streamIn}:a]adelay=${delayMs}|${delayMs},volume=${effect.volume}[${streamOut}]`;
         });
 
+        // Create the string to reference all the filtered effect streams for the final mix.
         const mixInputs = downloadedEffects.map((_, i) => `[sfx${i}]`).join('');
+        
+        // Combine the filters and the final mix command.
+        // We use duration=longest to ensure the final output is long enough to contain all effects.
         const complexFilter = [
           ...effectFilters,
           `${mixInputs}amix=inputs=${downloadedEffects.length},duration=longest[out]`
