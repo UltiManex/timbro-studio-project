@@ -421,9 +421,7 @@ export default function ProjectEditPage() {
     
     // Save the current state for potential revert
     setPreReanalysisEffects(project.effects || []);
-
     setIsReanalyzing(true);
-    toast({ title: "Re-analysis Started", description: `Reworking suggestions with a ${newTone} tone...` });
 
     try {
       const response = await suggestSoundEffects({
@@ -444,8 +442,6 @@ export default function ProjectEditPage() {
         transcript: response.transcript,
         selectedTone: newTone,
       });
-
-      toast({ title: "Re-analysis Complete!", description: "Review the new suggestions. You can revert this change until you close this dialog." });
 
     } catch (error: any) {
       console.error("Re-analysis failed:", error);
@@ -511,7 +507,7 @@ export default function ProjectEditPage() {
         currentTone={project.selectedTone}
         isReanalyzing={isReanalyzing}
         onInitiateReanalysis={handleReanalyze}
-        postReanalysis={preReanalysisEffects !== null}
+        preReanalysisEffects={preReanalysisEffects}
         onConfirmChanges={handleConfirmChanges}
         onRevert={handleRevertChanges}
       />
@@ -769,3 +765,5 @@ export default function ProjectEditPage() {
     </>
   );
 }
+
+    

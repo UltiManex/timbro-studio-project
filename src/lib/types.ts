@@ -1,5 +1,6 @@
 
-export type Tone = 'Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational' | 'All';
+
+export type Tone = 'Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational' | 'All' | 'User';
 
 export type DefaultEffectPlacement = 'ai-optimized' | 'manual-only';
 
@@ -43,3 +44,5 @@ export interface OnboardingStep {
   isCompleted: boolean;
   actionPath?: string; // Path to navigate to for completing the step
 }
+
+    
