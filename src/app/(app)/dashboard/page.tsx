@@ -112,7 +112,10 @@ export default function DashboardPage() {
 
           const aiResponse = await suggestSoundEffects({
             audioDataUri: audioDataUri,
-            selectedTone: project.selectedTone,
+            analysisSettings: {
+              tone: project.selectedTone,
+              placement: project.defaultEffectPlacement || 'ai-optimized',
+            },
             audioDuration: project.duration || 60,
           });
 
@@ -280,3 +283,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    

@@ -34,6 +34,15 @@ const SoundEffectSuggestionSchema = z.object({
   volume: z.number().min(0).max(1).default(1.0).describe('The volume of the effect, from 0.0 to 1.0.'),
 });
 
+const AnalysisSettingsSchema = z.object({
+  tone: z
+    .enum(['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational', 'All'])
+    .describe('The tone selected by the user to guide the sound effect suggestions.'),
+  placement: z
+    .enum(['ai-optimized', 'manual-only'])
+    .describe('The placement strategy for sound effects.'),
+});
+
 const SuggestSoundEffectsInputSchema = z.object({
   audioDataUri: z
     .string()
@@ -44,9 +53,7 @@ const SuggestSoundEffectsInputSchema = z.object({
     .url()
     .optional()
     .describe("A URL to the audio file. Used for re-processing."),
-  selectedTone: z
-    .enum(['Comedic', 'Dramatic', 'Suspenseful', 'Inspirational', 'All'])
-    .describe('The tone selected by the user to guide the sound effect suggestions. If "All", the AI should use its best judgment from the entire library.'),
+  analysisSettings: AnalysisSettingsSchema.describe('The settings for tone and effect placement.'),
   audioDuration: z.number().describe('The total duration of the audio in seconds.'),
 }).refine(data => data.audioDataUri || data.audioUrl, {
   message: "Either audioDataUri or audioUrl must be provided.",
@@ -72,17 +79,37 @@ const suggestSoundEffectsFlow = ai.defineFlow(
     inputSchema: SuggestSoundEffectsInputSchema,
     outputSchema: SuggestSoundEffectsOutputSchema,
   },
-  async input => {
-    // Fetch the sound effects library from Firestore within the flow
+  async (input) => {
+    // If placement is manual, we can skip the AI and return immediately.
+    if (input.analysisSettings.placement === 'manual-only') {
+      // We still need to run transcription, so we'll use a simplified prompt.
+      const transcriptionPrompt = ai.definePrompt({
+        name: 'transcriptionOnlyPrompt',
+        input: {schema: z.object({
+            audioDataUri: z.string().optional(),
+            audioUrl: z.string().url().optional(),
+        })},
+        output: {schema: z.object({ transcript: z.string() })},
+        prompt: `Transcribe the following audio file accurately.
+        Audio File to Analyze: {{#if audioDataUri}}{{media url=audioDataUri}}{{else}}{{media url=audioUrl}}{{/if}}
+        Your response MUST be a single JSON object with one key: "transcript".`,
+      });
+      const { output } = await transcriptionPrompt({ audioDataUri: input.audioDataUri, audioUrl: input.audioUrl });
+      return {
+        transcript: output?.transcript || '',
+        soundEffectSuggestions: [],
+      };
+    }
+
+    // Fetch the sound effects library from Firestore for the AI prompt
     const availableEffects = await fetchSoundEffectsFromFirestore();
     
     // Augment the original input with the fetched effects for the prompt
     const promptInput = {
       ...input,
-      availableEffects: availableEffects.map(({ previewUrl, ...rest }) => rest),
+      availableEffects: availableEffects.map(({ previewUrl, ...rest }) => rest), // Exclude previewUrl
     };
     
-    // Define two distinct prompt templates. This is safer than using complex Handlebars logic.
     const basePromptInstructions = `You are an expert audio post-production assistant and sound designer. Your goal is to analyze an audio file, transcribe it, and then intelligently place sound effects to enhance the narrative based on the content and a desired tone.
 
 Follow this multi-step process:
@@ -90,11 +117,9 @@ Follow this multi-step process:
 2.  **Analyze the Transcript**: Read through the transcript you just generated. Identify key moments, emotional shifts, punchlines, actions, or phrases that would be enhanced by a sound effect. For example, look for jokes, moments of tension, dramatic pauses, or inspiring statements.
 3.  **Map Moments to Sound Effects**: For each key moment you identify, select the most appropriate sound effect from the 'availableEffects' library.`;
 
-    const promptForSpecificTone = `${basePromptInstructions}
-    Your choice MUST be guided by the user's overall 'selectedTone' of '{{{selectedTone}}}'. Only use effects that have '{{{selectedTone}}}' in their 'tone' array.`;
-
-    const promptForAllTones = `${basePromptInstructions}
-    The user has selected "All" for the tone, giving you creative freedom. Use your expert judgment to select the best effect from the entire library that fits the moment, regardless of its assigned tone.`;
+    const toneInstructions = input.analysisSettings.tone === 'All'
+      ? `The user has selected "All" for the tone, giving you creative freedom. Use your expert judgment to select the best effect from the entire library that fits the moment, regardless of its assigned tone.`
+      : `Your choice MUST be guided by the user's overall 'selectedTone' of '${input.analysisSettings.tone}'. Only use effects that have '${input.analysisSettings.tone}' in their 'tone' array.`;
     
     const finalPromptInstructions = `RULES:
 - Your response MUST be a single JSON object with two keys: "transcript" and "soundEffectSuggestions".
@@ -105,15 +130,14 @@ Follow this multi-step process:
 
 Here is the information for your task:
 - Audio File to Analyze: {{#if audioDataUri}}{{media url=audioDataUri}}{{else}}{{media url=audioUrl}}{{/if}}
-- Selected Overall Tone: {{{selectedTone}}}
+- Selected Overall Tone: {{{analysisSettings.tone}}}
 - Audio Duration: {{{audioDuration}}} seconds.
 - Available Sound Effects Library (JSON):
 {{{json availableEffects}}}
 
 Now, based on your expert analysis, generate the JSON output containing the full transcript and the list of intelligent sound effect suggestions.`;
     
-    // Choose the correct prompt based on the input tone.
-    const promptText = (input.selectedTone === 'All' ? promptForAllTones : promptForSpecificTone) + '\n' + finalPromptInstructions;
+    const promptText = [basePromptInstructions, toneInstructions, finalPromptInstructions].join('\n\n');
 
     const prompt = ai.definePrompt({
       name: 'suggestSoundEffectsPrompt',
@@ -134,3 +158,5 @@ Now, based on your expert analysis, generate the JSON output containing the full
     return output!;
   }
 );
+
+    

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import type { Project, SoundEffect, SoundEffectInstance, Tone } from '@/lib/types';
+import type { Project, SoundEffect, SoundEffectInstance, Tone, AnalysisSettings } from '@/lib/types';
 import { AVAILABLE_TONES, EDITOR_NUDGE_INCREMENT_MS } from '@/lib/constants';
 import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2, Sparkles } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
@@ -22,7 +22,7 @@ import { generateWaveform } from '@/lib/waveform';
 import { getSoundEffects } from '@/lib/actions/sfx';
 import { mixAudio } from '@/ai/flows/mix-audio';
 import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
-import { ReanalyzeModal } from '@/components/modals/reanalyze-modal';
+import { EditAnalysisModal } from '@/components/modals/edit-analysis-modal';
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -94,9 +94,11 @@ export default function ProjectEditPage() {
   const [filterTone, setFilterTone] = useState<Tone | 'All'>('All');
   const [isExporting, setIsExporting] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
-  const [isReanalyzeModalOpen, setIsReanalyzeModalOpen] = useState(false);
+  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const [waveform, setWaveform] = useState<number[]>([]);
   const [preReanalysisEffects, setPreReanalysisEffects] = useState<SoundEffectInstance[] | null>(null);
+  const [preReanalysisSettings, setPreReanalysisSettings] = useState<{tone: Tone, placement: Project['defaultEffectPlacement']} | null>(null);
+
   
   const audioDuration = project?.duration || 0; 
   const effects = project?.effects || [];
@@ -413,20 +415,20 @@ export default function ProjectEditPage() {
     }
 };
 
- const handleReanalyze = async (newTone: Tone) => {
+const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
     if (!project || !project.audioUrl || !project.duration) {
       toast({ title: "Cannot Re-analyze", description: "Project data is incomplete.", variant: "destructive" });
       return;
     }
     
-    // Save the current state for potential revert
     setPreReanalysisEffects(project.effects || []);
+    setPreReanalysisSettings({ tone: project.selectedTone, placement: project.defaultEffectPlacement });
     setIsReanalyzing(true);
 
     try {
       const response = await suggestSoundEffects({
         audioUrl: project.audioUrl,
-        selectedTone: newTone,
+        analysisSettings: settings,
         audioDuration: project.duration,
       });
       
@@ -440,7 +442,8 @@ export default function ProjectEditPage() {
       updateProject({
         effects: newEffects,
         transcript: response.transcript,
-        selectedTone: newTone,
+        selectedTone: settings.tone,
+        defaultEffectPlacement: settings.placement,
       });
 
     } catch (error: any) {
@@ -452,24 +455,31 @@ export default function ProjectEditPage() {
       });
       // On failure, clear the "revert" state
       setPreReanalysisEffects(null);
+      setPreReanalysisSettings(null);
     } finally {
       setIsReanalyzing(false);
     }
   };
 
   const handleRevertChanges = () => {
-    if (project && preReanalysisEffects) {
-      updateProject({ effects: preReanalysisEffects });
-      toast({ title: "Changes Reverted", description: "The previous sound effects have been restored." });
+    if (project && preReanalysisEffects && preReanalysisSettings) {
+      updateProject({
+        effects: preReanalysisEffects,
+        selectedTone: preReanalysisSettings.tone,
+        defaultEffectPlacement: preReanalysisSettings.placement,
+       });
+      toast({ title: "Changes Reverted", description: "The previous settings and effects have been restored." });
     }
     setPreReanalysisEffects(null);
-    setIsReanalyzeModalOpen(false);
+    setPreReanalysisSettings(null);
+    setIsAnalysisModalOpen(false);
   };
 
   const handleConfirmChanges = () => {
     // "Commit" the changes by clearing the revert state
     setPreReanalysisEffects(null);
-    setIsReanalyzeModalOpen(false);
+    setPreReanalysisSettings(null);
+    setIsAnalysisModalOpen(false);
     toast({ title: "Changes Confirmed", description: "Your project has been updated." });
   };
 
@@ -495,18 +505,20 @@ export default function ProjectEditPage() {
 
   return (
     <>
-    <ReanalyzeModal
-        isOpen={isReanalyzeModalOpen}
+    <EditAnalysisModal
+        isOpen={isAnalysisModalOpen}
         onOpenChange={(isOpen) => {
             if (!isOpen) {
-                // If closing modal, always clear the revert state
+                // If closing modal, always clear any pending revert states
                 setPreReanalysisEffects(null);
+                setPreReanalysisSettings(null);
             }
-            setIsReanalyzeModalOpen(isOpen);
+            setIsAnalysisModalOpen(isOpen);
         }}
         currentTone={project.selectedTone}
+        currentPlacement={project.defaultEffectPlacement || 'ai-optimized'}
         isReanalyzing={isReanalyzing}
-        onInitiateReanalysis={handleReanalyze}
+        onUpdateAnalysis={handleUpdateAnalysis}
         preReanalysisEffects={preReanalysisEffects}
         onConfirmChanges={handleConfirmChanges}
         onRevert={handleRevertChanges}
@@ -539,12 +551,12 @@ export default function ProjectEditPage() {
       <div className="flex items-center justify-between p-4 border-b bg-card">
         <div>
           <h1 className="text-xl font-semibold font-headline">{project.name}</h1>
-          <p className="text-sm text-muted-foreground">Current Tone: {project.selectedTone}</p>
+          <p className="text-sm text-muted-foreground">Tone: {project.selectedTone} | Placement: {project.defaultEffectPlacement === 'ai-optimized' ? 'AI-Optimized' : 'Manual Only'}</p>
         </div>
         <div className="flex items-center gap-2">
-           <Button variant="outline" size="sm" onClick={() => setIsReanalyzeModalOpen(true)} disabled={isReanalyzing}>
+           <Button variant="outline" size="sm" onClick={() => setIsAnalysisModalOpen(true)} disabled={isReanalyzing}>
             {isReanalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Re-Analyze
+            Edit Analysis
           </Button>
           <Button variant="outline" size="sm" onClick={handleSaveProject}><Save className="mr-2 h-4 w-4" />Save Project</Button>
           <Button size="sm" onClick={handleExport} disabled={isExporting}>
