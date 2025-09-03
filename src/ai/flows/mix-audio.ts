@@ -43,6 +43,7 @@ const MixAudioInputSchema = z.object({
     timestamp: z.number(),
     volume: z.number().optional().default(1.0),
   })).describe('An array of sound effect instances to be mixed.'),
+  outputMode: z.enum(['full', 'effects_only']).optional().default('full').describe('The desired output type: a full mix or only the sound effects track.'),
 });
 export type MixAudioInput = z.infer<typeof MixAudioInputSchema>;
 
@@ -64,25 +65,18 @@ const mixAudioFlow = ai.defineFlow(
     outputSchema: MixAudioOutputSchema,
   },
   async (input) => {
-    const { projectId, mainAudioUrl, effects } = input;
+    const { projectId, mainAudioUrl, effects, outputMode } = input;
 
     // 1. Create a temporary directory for our audio files
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `timbro-mix-${projectId}-`));
     
     try {
-      console.log(`[${projectId}] Starting audio mix. Temp dir: ${tempDir}`);
-
-      // 2. Download the main audio track
-      const mainAudioPath = path.join(tempDir, 'main.mp3'); // Assume mp3 for simplicity
-      console.log(`[${projectId}] Downloading main audio from ${mainAudioUrl}`);
-      await downloadFile(mainAudioUrl, mainAudioPath);
-      console.log(`[${projectId}] Main audio downloaded to ${mainAudioPath}`);
+      console.log(`[${projectId}] Starting audio mix. Mode: ${outputMode}. Temp dir: ${tempDir}`);
       
-      // 3. Get the full sound effect library details (including URLs)
       const sfxLibrary = await getSoundEffects();
       const sfxMap = new Map(sfxLibrary.map(sfx => [sfx.id, sfx]));
 
-      // 4. Download all required sound effects in parallel
+      // 2. Download all required sound effects in parallel
       const effectDownloads = effects.map(async (effectInstance) => {
         const sfxDetails = sfxMap.get(effectInstance.effectId);
         if (!sfxDetails) {
@@ -97,39 +91,78 @@ const mixAudioFlow = ai.defineFlow(
       const downloadedEffects = (await Promise.all(effectDownloads)).filter(Boolean) as (SoundEffectInstance & { path: string })[];
       console.log(`[${projectId}] Downloaded ${downloadedEffects.length} sound effects.`);
 
-      // 5. Build the FFmpeg command
-      const outputPath = path.join(tempDir, 'output.mp3');
-      const command = ffmpeg(mainAudioPath);
+      if (downloadedEffects.length === 0) {
+        throw new Error("No valid sound effects were provided or found to mix.");
+      }
 
-      // Add each effect as an input to the command
-      downloadedEffects.forEach(effect => {
-        command.input(effect.path);
-      });
-      
-      // Construct the complex filter for overlaying audio
-      // Format: [1:a]adelay=1000|1000[a1]; [0:a][a1]amix=inputs=2
-      // This means: take input 1 ([1:a]), delay it by 'timestamp' ms, output to stream [a1].
-      // Then, take input 0 ([0:a]) and stream [a1] and mix them.
-      // We chain these mixes together.
-      const effectFilters = downloadedEffects.map((effect, index) => {
+      // 3. Build and run the FFmpeg command based on the output mode
+      const outputPath = path.join(tempDir, 'output.mp3');
+      let command;
+
+      if (outputMode === 'full') {
+        const mainAudioPath = path.join(tempDir, 'main.mp3');
+        console.log(`[${projectId}] Downloading main audio from ${mainAudioUrl}`);
+        await downloadFile(mainAudioUrl, mainAudioPath);
+        console.log(`[${projectId}] Main audio downloaded to ${mainAudioPath}`);
+
+        command = ffmpeg(mainAudioPath);
+        downloadedEffects.forEach(effect => command.input(effect.path));
+        
+        const effectFilters = downloadedEffects.map((effect, index) => {
           const streamIn = index + 1; // 0 is main audio, 1+ are effects
           const streamOut = `sfx${index}`;
           const delayMs = effect.timestamp * 1000;
           return `[${streamIn}:a]adelay=${delayMs}|${delayMs},volume=${effect.volume}[${streamOut}]`;
-      });
-      
-      const mixInputs = ['[0:a]', ...downloadedEffects.map((_, i) => `[sfx${i}]`)].join('');
-      const complexFilter = [
-        ...effectFilters,
-        `${mixInputs}amix=inputs=${downloadedEffects.length + 1}[out]`
-      ].join('; ');
+        });
+        
+        const mixInputs = ['[0:a]', ...downloadedEffects.map((_, i) => `[sfx${i}]`)].join('');
+        const complexFilter = [
+          ...effectFilters,
+          `${mixInputs}amix=inputs=${downloadedEffects.length + 1}[out]`
+        ].join('; ');
 
-      console.log(`[${projectId}] Using FFmpeg filter: ${complexFilter}`);
-      
-      command.complexFilter(complexFilter, 'out');
-      command.outputOptions('-c:a', 'libmp3lame', '-q:a', '2'); // Standard MP3 quality
+        console.log(`[${projectId}] Using FFmpeg filter for full mix: ${complexFilter}`);
+        command.complexFilter(complexFilter, 'out');
 
-      // 6. Run FFmpeg and wait for it to complete
+      } else { // 'effects_only' mode
+        // Create a silent track with the same duration as the main audio to act as a base
+        const mainAudioDuration = await new Promise<number>((resolve, reject) => {
+            ffmpeg.ffprobe(mainAudioUrl, (err, metadata) => {
+                if (err) reject(err);
+                else resolve(metadata.format.duration || 0);
+            });
+        });
+        
+        if (mainAudioDuration === 0) {
+            throw new Error("Could not determine the duration of the main audio track.");
+        }
+        
+        // Use the first effect as the base input for FFmpeg
+        command = ffmpeg(downloadedEffects[0].path);
+        // Add the rest of the effects
+        for(let i = 1; i < downloadedEffects.length; i++) {
+            command.input(downloadedEffects[i].path);
+        }
+        
+        const effectFilters = downloadedEffects.map((effect, index) => {
+          const streamIn = index; // Effects are the only inputs
+          const streamOut = `sfx${index}`;
+          const delayMs = effect.timestamp * 1000;
+          return `[${streamIn}:a]adelay=${delayMs}|${delayMs},volume=${effect.volume}[${streamOut}]`;
+        });
+
+        const mixInputs = downloadedEffects.map((_, i) => `[sfx${i}]`).join('');
+        const complexFilter = [
+          ...effectFilters,
+          `${mixInputs}amix=inputs=${downloadedEffects.length},duration=longest[out]`
+        ].join('; ');
+        
+        console.log(`[${projectId}] Using FFmpeg filter for effects-only mix: ${complexFilter}`);
+        command.complexFilter(complexFilter, 'out');
+      }
+
+      command.outputOptions('-c:a', 'libmp3lame', '-q:a', '2');
+
       await new Promise<void>((resolve, reject) => {
         command
           .on('start', (cmd) => console.log(`[${projectId}] FFmpeg started:`, cmd))
@@ -144,9 +177,10 @@ const mixAudioFlow = ai.defineFlow(
           .save(outputPath);
       });
 
-      // 7. Upload the final mixed file to Firebase Storage
+      // 4. Upload the final mixed file to Firebase Storage
       const outputBuffer = await fs.readFile(outputPath);
-      const finalStoragePath = `exports/${projectId}/final-mix.mp3`;
+      const finalFilename = outputMode === 'full' ? 'final-mix.mp3' : 'effects-only.mp3';
+      const finalStoragePath = `exports/${projectId}/${finalFilename}`;
       const storageRef = ref(storage!, finalStoragePath);
       
       console.log(`[${projectId}] Uploading final mix to ${finalStoragePath}`);
@@ -154,14 +188,14 @@ const mixAudioFlow = ai.defineFlow(
       const downloadURL = await getDownloadURL(uploadResult.ref);
       console.log(`[${projectId}] Upload complete. Final URL: ${downloadURL}`);
 
-      // 8. Return the public URL
+      // 5. Return the public URL
       return { finalAudioUrl: downloadURL };
 
     } catch (error) {
       console.error(`[${projectId}] An error occurred in the mixAudioFlow:`, error);
       throw new Error(`Failed to mix audio for project ${projectId}.`);
     } finally {
-      // 9. Clean up the temporary directory
+      // 6. Clean up the temporary directory
       await fs.rm(tempDir, { recursive: true, force: true });
       console.log(`[${projectId}] Cleaned up temporary directory.`);
     }

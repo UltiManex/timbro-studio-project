@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from '@/hooks/use-toast';
 import type { Project, SoundEffect, SoundEffectInstance, Tone, AnalysisSettings } from '@/lib/types';
 import { AVAILABLE_TONES, EDITOR_NUDGE_INCREMENT_MS } from '@/lib/constants';
-import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2, Sparkles } from 'lucide-react';
+import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2, Sparkles, Music4 } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
 import { Slider } from '@/components/ui/slider';
 import { InstantSearch, SearchBox, Hits, Configure, useInstantSearch } from 'react-instantsearch-hooks-web';
@@ -23,6 +23,14 @@ import { getSoundEffects } from '@/lib/actions/sfx';
 import { mixAudio } from '@/ai/flows/mix-audio';
 import { suggestSoundEffects } from '@/ai/flows/suggest-sound-effects';
 import { EditAnalysisModal } from '@/components/modals/edit-analysis-modal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const LOCAL_STORAGE_KEY = 'timbro-projects';
 
@@ -373,8 +381,8 @@ export default function ProjectEditPage() {
     toast({ title: "Project Saved!", description: "Your changes have been saved successfully." });
   };
 
-  const handleExport = async () => {
-    if (!project || !project.audioUrl) {
+  const startExport = async (mode: 'full' | 'effects_only') => {
+     if (!project || !project.audioUrl) {
         toast({ title: "Cannot Export", description: "Project data is incomplete or the initial audio has not been uploaded yet.", variant: "destructive" });
         return;
     }
@@ -383,21 +391,33 @@ export default function ProjectEditPage() {
         return;
     }
 
-
     setIsExporting(true);
-    toast({ title: "Export Started", description: "Your audio is being mixed on our servers. This may take a few moments." });
+    const toastTitle = mode === 'full' ? "Export Started" : "Exporting Effects Track";
+    toast({ title: toastTitle, description: "Your audio is being mixed. This may take a few moments." });
 
     try {
         const result = await mixAudio({
             projectId: project.id,
             mainAudioUrl: project.audioUrl,
             effects: project.effects.map(({ id, isUserAdded, ...rest }) => rest),
+            outputMode: mode,
         });
 
         if (result.finalAudioUrl) {
-            updateProject({ status: 'Completed', finalAudioUrl: result.finalAudioUrl });
-            toast({ title: "Export Complete!", description: "Your audio is ready. You will be redirected to the dashboard.", duration: 8000 });
-            router.push('/dashboard');
+            if (mode === 'full') {
+                 updateProject({ status: 'Completed', finalAudioUrl: result.finalAudioUrl });
+                 toast({ title: "Export Complete!", description: "Your audio is ready. You will be redirected to the dashboard.", duration: 8000 });
+                 router.push('/dashboard');
+            } else {
+                 // For effects-only, trigger a download instead of redirecting
+                const link = document.createElement('a');
+                link.href = result.finalAudioUrl;
+                link.setAttribute('download', `${project.name}-effects.mp3`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                toast({ title: "Effects Track Ready", description: "Your effects-only audio file is downloading." });
+            }
         } else {
             throw new Error("The mixing process did not return a final URL.");
         }
@@ -409,11 +429,13 @@ export default function ProjectEditPage() {
             variant: "destructive",
             duration: 10000,
         });
-        updateProject({ status: 'Error' });
+        if (mode === 'full') {
+            updateProject({ status: 'Error' });
+        }
     } finally {
         setIsExporting(false);
     }
-};
+  };
 
 const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
     if (!project || !project.audioUrl || !project.duration) {
@@ -437,7 +459,11 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
         ...suggestion,
         id: `ai_inst_${Date.now()}_${Math.random()}`
       }));
-      const newEffects = [...userAddedEffects, ...newAiSuggestions];
+      
+      let newEffects = [];
+      if(settings.placement === 'ai-optimized') {
+        newEffects = [...userAddedEffects, ...newAiSuggestions];
+      }
       
       updateProject({
         effects: newEffects,
@@ -559,10 +585,26 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
             Edit Analysis
           </Button>
           <Button variant="outline" size="sm" onClick={handleSaveProject}><Save className="mr-2 h-4 w-4" />Save Project</Button>
-          <Button size="sm" onClick={handleExport} disabled={isExporting}>
-            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-            Export Audio
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+               <Button size="sm" disabled={isExporting}>
+                {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                Export...
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Export Options</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => startExport('full')} disabled={isExporting}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Full Mix
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => startExport('effects_only')} disabled={isExporting}>
+                    <Music4 className="mr-2 h-4 w-4" />
+                    Export Effects Only
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -777,5 +819,3 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
     </>
   );
 }
-
-    
