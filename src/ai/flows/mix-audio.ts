@@ -133,7 +133,7 @@ const mixAudioFlow = ai.defineFlow(
         });
         
         // THEN, build the complex filter graph that references these inputs.
-        const effectFilters = downloadededEffects.map((effect, index) => {
+        const effectFilters = downloadedEffects.map((effect, index) => {
           const streamIn = index; // The first effect is input 0, second is 1, etc.
           const streamOut = `sfx${index}`;
           const delayMs = effect.timestamp * 1000;
