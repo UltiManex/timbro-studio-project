@@ -392,8 +392,8 @@ export default function ProjectEditPage() {
     }
 
     setIsExporting(true);
-    const toastTitle = mode === 'full' ? "Export Started" : "Exporting Effects Track";
-    toast({ title: toastTitle, description: "Your audio is being mixed. This may take a few moments." });
+    const toastTitle = mode === 'full' ? "Exporting Full Mix..." : "Exporting Effects Track...";
+    toast({ title: toastTitle, description: "Your audio is being mixed. You'll be redirected when it's done." });
 
     try {
         const result = await mixAudio({
@@ -404,20 +404,13 @@ export default function ProjectEditPage() {
         });
 
         if (result.finalAudioUrl) {
-            if (mode === 'full') {
-                 updateProject({ status: 'Completed', finalAudioUrl: result.finalAudioUrl });
-                 toast({ title: "Export Complete!", description: "Your audio is ready. You will be redirected to the dashboard.", duration: 8000 });
-                 router.push('/dashboard');
-            } else {
-                 // For effects-only, trigger a download instead of redirecting
-                const link = document.createElement('a');
-                link.href = result.finalAudioUrl;
-                link.setAttribute('download', `${project.name}-effects.mp3`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                toast({ title: "Effects Track Ready", description: "Your effects-only audio file is downloading." });
-            }
+            const urlFieldToUpdate = mode === 'full' ? 'fullMixAudioUrl' : 'effectsOnlyAudioUrl';
+            updateProject({
+                [urlFieldToUpdate]: result.finalAudioUrl,
+                status: 'Completed'
+            });
+            toast({ title: "Export Complete!", description: "Your audio is ready. You will be redirected to the dashboard.", duration: 8000 });
+            router.push('/dashboard');
         } else {
             throw new Error("The mixing process did not return a final URL.");
         }
@@ -429,9 +422,7 @@ export default function ProjectEditPage() {
             variant: "destructive",
             duration: 10000,
         });
-        if (mode === 'full') {
-            updateProject({ status: 'Error' });
-        }
+        updateProject({ status: 'Error' });
     } finally {
         setIsExporting(false);
     }

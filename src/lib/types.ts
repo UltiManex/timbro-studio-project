@@ -18,7 +18,8 @@ export interface Project {
   effects?: SoundEffectInstance[];
   selectedTone: Tone;
   defaultEffectPlacement?: DefaultEffectPlacement;
-  finalAudioUrl?: string; // URL to download the mixed audio
+  fullMixAudioUrl?: string; // URL to download the full mixed audio
+  effectsOnlyAudioUrl?: string; // URL to download the effects-only audio
 }
 
 export interface SoundEffect {
