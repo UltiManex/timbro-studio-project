@@ -91,9 +91,10 @@ const mixAudioFlow = ai.defineFlow(
       const downloadedEffects = (await Promise.all(effectDownloads)).filter(Boolean) as (SoundEffectInstance & { path: string })[];
       console.log(`[${projectId}] Downloaded ${downloadedEffects.length} sound effects.`);
 
-      if (downloadedEffects.length === 0) {
-        throw new Error("No valid sound effects were provided or found to mix.");
+      if (downloadedEffects.length === 0 && outputMode === 'effects_only') {
+          throw new Error("No sound effects were provided to create an 'effects-only' track.");
       }
+
 
       // 3. Build and run the FFmpeg command based on the output mode
       const outputPath = path.join(tempDir, 'output.mp3');
@@ -145,7 +146,7 @@ const mixAudioFlow = ai.defineFlow(
         // CORRECTED aMIX SYNTAX
         const complexFilter = [
           ...effectFilters,
-          `${mixInputs}amix=inputs=${downloadedEffects.length}:duration=longest[out]`
+          `${mixInputs}amix=inputs=${downloadedEffects.length}[out]`
         ].join('; ');
         
         console.log(`[${projectId}] Using FFmpeg filter for effects-only mix: ${complexFilter}`);
