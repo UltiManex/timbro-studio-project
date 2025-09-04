@@ -142,9 +142,10 @@ const mixAudioFlow = ai.defineFlow(
 
         const mixInputs = downloadedEffects.map((_, i) => `[sfx${i}]`).join('');
         
+        // CORRECTED aMIX SYNTAX
         const complexFilter = [
           ...effectFilters,
-          `${mixInputs}amix=inputs=${downloadedEffects.length},duration=longest[out]`
+          `${mixInputs}amix=inputs=${downloadedEffects.length}:duration=longest[out]`
         ].join('; ');
         
         console.log(`[${projectId}] Using FFmpeg filter for effects-only mix: ${complexFilter}`);
@@ -182,7 +183,8 @@ const mixAudioFlow = ai.defineFlow(
       return { finalAudioUrl: downloadURL };
 
     } catch (error) {
-      console.error(`[${projectId}] An error occurred in the mixAudioFlow:`, error);
+      // CORRECTED CONSOLE.ERROR TO BE MORE DESCRIPTIVE
+      console.error(`[${projectId}] An error occurred in the mixAudioFlow: ${error instanceof Error ? error.message : String(error)}`);
       throw new Error(`Failed to mix audio for project ${projectId}.`);
     } finally {
       // 6. Clean up the temporary directory
