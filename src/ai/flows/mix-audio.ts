@@ -79,8 +79,8 @@ const mixAudioFlow = ai.defineFlow(
       // 2. Download all required sound effects in parallel
       const effectDownloads = effects.map(async (effectInstance) => {
         const sfxDetails = sfxMap.get(effectInstance.effectId);
-        if (!sfxDetails) {
-          console.warn(`[${projectId}] Sound effect with ID ${effectInstance.effectId} not found in library. Skipping.`);
+        if (!sfxDetails || !sfxDetails.previewUrl) {
+          console.warn(`[${projectId}] Sound effect with ID ${effectInstance.effectId} not found or has no URL. Skipping.`);
           return null;
         }
         const effectPath = path.join(tempDir, `${sfxDetails.id}.mp3`);
@@ -91,10 +91,9 @@ const mixAudioFlow = ai.defineFlow(
       const downloadedEffects = (await Promise.all(effectDownloads)).filter(Boolean) as (SoundEffectInstance & { path: string })[];
       console.log(`[${projectId}] Downloaded ${downloadedEffects.length} sound effects.`);
 
-      if (downloadedEffects.length === 0 && outputMode === 'effects_only') {
-          throw new Error("No sound effects were provided to create an 'effects-only' track.");
+      if (downloadedEffects.length === 0) {
+        throw new Error("No valid sound effects were provided or found to mix.");
       }
-
 
       // 3. Build and run the FFmpeg command based on the output mode
       const outputPath = path.join(tempDir, 'output.mp3');
@@ -143,7 +142,7 @@ const mixAudioFlow = ai.defineFlow(
 
         const mixInputs = downloadedEffects.map((_, i) => `[sfx${i}]`).join('');
         
-        // CORRECTED aMIX SYNTAX
+        // CORRECTED FFmpeg `amix` syntax: removed flawed/extra arguments.
         const complexFilter = [
           ...effectFilters,
           `${mixInputs}amix=inputs=${downloadedEffects.length}[out]`
@@ -184,7 +183,7 @@ const mixAudioFlow = ai.defineFlow(
       return { finalAudioUrl: downloadURL };
 
     } catch (error) {
-      // CORRECTED CONSOLE.ERROR TO BE MORE DESCRIPTIVE
+      // CORRECTED CONSOLE.ERROR TO BE MORE DESCRIPTIVE AND GUARANTEE A STRING IS LOGGED
       console.error(`[${projectId}] An error occurred in the mixAudioFlow: ${error instanceof Error ? error.message : String(error)}`);
       throw new Error(`Failed to mix audio for project ${projectId}.`);
     } finally {
