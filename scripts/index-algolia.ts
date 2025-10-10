@@ -1,3 +1,4 @@
+
 // scripts/index-algolia.ts
 import algoliasearch from 'algoliasearch';
 import { config } from 'dotenv';
@@ -73,11 +74,13 @@ async function indexData() {
       searchableAttributes: [
         'name',
         'tags',
+        'text_desc',
+        'ontology_path',
         'unordered(name)',
         'unordered(tags)',
       ],
       // Attributes for filtering (facets)
-      attributesForFaceting: ['filterOnly(tone)'],
+      attributesForFaceting: ['filterOnly(tone)', 'filterOnly(mood)', 'loopable'],
     });
     console.log('Index settings configured successfully.');
   } catch (error) {

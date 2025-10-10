@@ -18,16 +18,26 @@ export interface Project {
   effects?: SoundEffectInstance[];
   selectedTone: Tone;
   defaultEffectPlacement?: DefaultEffectPlacement;
-  fullMixAudioUrl?: string; // URL to download the full mixed audio
-  effectsOnlyAudioUrl?: string; // URL to download the effects-only audio
+  fullMixAudioUrl?: string; 
+  effectsOnlyAudioUrl?: string;
 }
 
 export interface SoundEffect {
   id: string;
-  name:string;
+  name: string;
   tags: string[];
-  tone: ('Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational')[]; // Specific tones for an effect
-  previewUrl: string; // URL to preview the sound effect
+  tone: ('Comedic' | 'Dramatic' | 'Suspenseful' | 'Inspirational')[];
+  previewUrl: string;
+
+  // New fields for enhanced AI reasoning
+  ontology_path: string[]; // e.g., ["Human", "Speech", "Gasp"]
+  text_desc: string; // A rich description for the AI.
+  mood?: string[]; // e.g., ["tense", "surprising", "lighthearted"]
+  intensity_db?: number; // Estimated perceived loudness in dB.
+  duration_s: number; // Average duration in seconds.
+  onset_type?: 'attack' | 'swell' | 'fade'; // How the sound begins.
+  tail_type?: 'short_decay' | 'long_decay' | 'abrupt'; // How the sound ends.
+  loopable: boolean;
 }
 
 export interface SoundEffectInstance {

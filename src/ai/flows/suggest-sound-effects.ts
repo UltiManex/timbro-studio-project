@@ -32,6 +32,7 @@ const SoundEffectSuggestionSchema = z.object({
   effectId: z.string().describe('The ID of the suggested sound effect from the provided library (e.g., "sfx_001").'),
   timestamp: z.number().describe('The timestamp in seconds where the effect should be placed.'),
   volume: z.number().min(0).max(1).default(1.0).describe('The volume of the effect, from 0.0 to 1.0.'),
+  reasoning: z.string().optional().describe('A brief explanation of why this effect was chosen for this moment.'),
 });
 
 const AnalysisSettingsSchema = z.object({
@@ -50,7 +51,7 @@ const SuggestSoundEffectsInputSchema = z.object({
     .describe("The audio file to be analyzed, as a data URI. Used for initial processing."),
   audioUrl: z
     .string()
-    .url()
+al.url()
     .optional()
     .describe("A URL to the audio file. Used for re-processing."),
   analysisSettings: AnalysisSettingsSchema.describe('The settings for tone and effect placement.'),
@@ -61,11 +62,19 @@ const SuggestSoundEffectsInputSchema = z.object({
 
 export type SuggestSoundEffectsInput = z.infer<typeof SuggestSoundEffectsInputSchema>;
 
+const WordTimestampSchema = z.object({
+  word: z.string(),
+  start: z.number().describe("Start time of the word in seconds."),
+  end: z.number().describe("End time of the word in seconds."),
+});
+
 const SuggestSoundEffectsOutputSchema = z.object({
   soundEffectSuggestions: z
     .array(SoundEffectSuggestionSchema)
     .describe('An array of sound effect suggestion objects, each with an effectId, timestamp, and volume.'),
   transcript: z.string().describe('The generated transcript of the audio content.'),
+  // Adding the structured transcript to the output for more precise timeline rendering.
+  structuredTranscript: z.array(WordTimestampSchema).optional().describe("A word-by-word timestamped transcript."),
 });
 export type SuggestSoundEffectsOutput = z.infer<typeof SuggestSoundEffectsOutputSchema>;
 
@@ -82,51 +91,58 @@ const suggestSoundEffectsFlow = ai.defineFlow(
   async (input) => {
     // If placement is manual, we can skip the AI and return immediately.
     if (input.analysisSettings.placement === 'manual-only') {
-      // We still need to run transcription, so we'll use a simplified prompt.
       const transcriptionPrompt = ai.definePrompt({
         name: 'transcriptionOnlyPrompt',
         input: {schema: z.object({
             audioDataUri: z.string().optional(),
             audioUrl: z.string().url().optional(),
         })},
-        output: {schema: z.object({ transcript: z.string() })},
-        prompt: `Transcribe the following audio file accurately.
+        output: {schema: z.object({ transcript: z.string(), structuredTranscript: z.array(WordTimestampSchema).optional() })},
+        prompt: `Transcribe the following audio file accurately. Provide both a full text transcript and a word-by-word timestamped transcript.
         Audio File to Analyze: {{#if audioDataUri}}{{media url=audioDataUri}}{{else}}{{media url=audioUrl}}{{/if}}
-        Your response MUST be a single JSON object with one key: "transcript".`,
+        Your response MUST be a single JSON object with two keys: "transcript" (a single string) and "structuredTranscript" (an array of {word, start, end} objects).`,
       });
       const { output } = await transcriptionPrompt({ audioDataUri: input.audioDataUri, audioUrl: input.audioUrl });
       return {
         transcript: output?.transcript || '',
+        structuredTranscript: output?.structuredTranscript,
         soundEffectSuggestions: [],
       };
     }
 
-    // Fetch the sound effects library from Firestore for the AI prompt
     const availableEffects = await fetchSoundEffectsFromFirestore();
     
-    // Augment the original input with the fetched effects for the prompt
+    // Exclude previewUrl from the data sent to the AI to save tokens.
     const promptInput = {
       ...input,
-      availableEffects: availableEffects.map(({ previewUrl, ...rest }) => rest), // Exclude previewUrl
+      availableEffects: availableEffects.map(({ previewUrl, ...rest }) => rest),
     };
     
-    const basePromptInstructions = `You are an expert audio post-production assistant and sound designer. Your goal is to analyze an audio file, transcribe it, and then intelligently place sound effects to enhance the narrative based on the content and a desired tone.
+    const basePromptInstructions = `You are an expert audio post-production assistant and sound designer. Your goal is to analyze an audio file with superhuman attention to detail, transcribe it with word-level timestamps, and then intelligently place sound effects to enhance the narrative based on the content and a desired tone.
 
-Follow this multi-step process:
-1.  **Transcribe the Audio**: First, create a complete and accurate text transcript of the provided audio file.
-2.  **Analyze the Transcript**: Read through the transcript you just generated. Identify key moments, emotional shifts, punchlines, actions, or phrases that would be enhanced by a sound effect. For example, look for jokes, moments of tension, dramatic pauses, or inspiring statements.
-3.  **Map Moments to Sound Effects**: For each key moment you identify, select the most appropriate sound effect from the 'availableEffects' library.`;
+Follow this multi-step process meticulously:
+
+1.  **Timestamped Transcription**: First, create a complete and accurate text transcript of the provided audio file. You MUST also generate a word-by-word timestamped transcript, detailing the start and end time of every single word.
+
+2.  **Scene and Event Analysis**: Read through the transcript you just generated. Identify key moments, emotional shifts, punchlines, actions, or phrases that would be enhanced by a sound effect. For each moment, understand the underlying **action** (e.g., "a door opens"), the **object** (e.g., "the door"), and the **mood** (e.g., "creepy, tense").
+
+3.  **Intelligent SFX Mapping**: For each key moment you identify, select the most appropriate sound effect from the 'availableEffects' library. Your selection should be based on a deep understanding of the effect's metadata.
+    *   Match the **action** and **object** to the effect's 'text_desc' and 'ontology_path'.
+    *   Match the **mood** of the moment to the effect's 'mood' and 'tone' tags.
+    *   Consider the 'duration_s' and 'tail_type' to ensure the sound fits in the available pause in the dialogue.
+
+4.  **Placement and Justification**: Place the effect at the most impactful moment, usually at the beginning of a natural pause right after the descriptive word. For each suggestion, provide a brief 'reasoning' for your choice.`;
 
     const toneInstructions = input.analysisSettings.tone === 'All'
       ? `The user has selected "All" for the tone, giving you creative freedom. Use your expert judgment to select the best effect from the entire library that fits the moment, regardless of its assigned tone.`
       : `Your choice MUST be guided by the user's overall 'selectedTone' of '${input.analysisSettings.tone}'. Only use effects that have '${input.analysisSettings.tone}' in their 'tone' array.`;
     
     const finalPromptInstructions = `RULES:
-- Your response MUST be a single JSON object with two keys: "transcript" and "soundEffectSuggestions".
-- The 'transcript' key must contain the full, accurate transcription of the audio.
+- Your response MUST be a single JSON object with three keys: "transcript" (a single string), "structuredTranscript" (an array of {word, start, end} objects), and "soundEffectSuggestions" (an array of suggestion objects).
 - The 'soundEffectSuggestions' array should contain your carefully chosen effects.
 - You MUST only suggest effects from the provided 'availableEffects' library, using the correct 'id' for the 'effectId' field (e.g., "sfx_001").
-- The 'timestamp' for each effect MUST be a number in seconds and MUST NOT exceed the 'audioDuration'. Do not place all effects at the start; they should be distributed logically throughout the audio timeline according to your analysis.
+- The 'timestamp' for each effect MUST be a number in seconds, must not exceed the 'audioDuration', and should be placed logically within the audio timeline.
+- Provide a brief 'reasoning' for each suggestion.
 
 Here is the information for your task:
 - Audio File to Analyze: {{#if audioDataUri}}{{media url=audioDataUri}}{{else}}{{media url=audioUrl}}{{/if}}
@@ -135,7 +151,7 @@ Here is the information for your task:
 - Available Sound Effects Library (JSON):
 {{{json availableEffects}}}
 
-Now, based on your expert analysis, generate the JSON output containing the full transcript and the list of intelligent sound effect suggestions.`;
+Now, based on your expert analysis, generate the JSON output.`;
     
     const promptText = [basePromptInstructions, toneInstructions, finalPromptInstructions].join('\n\n');
 
@@ -148,6 +164,13 @@ Now, based on your expert analysis, generate the JSON output containing the full
           name: z.string(),
           tags: z.array(z.string()),
           tone: z.array(z.string()),
+          ontology_path: z.array(z.string()),
+          text_desc: z.string(),
+          mood: z.array(z.string()).optional(),
+          duration_s: z.number(),
+          onset_type: z.enum(['attack', 'swell', 'fade']).optional(),
+          tail_type: z.enum(['short_decay', 'long_decay', 'abrupt']).optional(),
+          loopable: z.boolean(),
         })).describe('A library of available sound effects the AI can choose from.'),
       })},
       output: {schema: SuggestSoundEffectsOutputSchema},
@@ -155,8 +178,12 @@ Now, based on your expert analysis, generate the JSON output containing the full
     });
 
     const {output} = await prompt(promptInput);
+    
+    // Post-processing step: Filter out suggestions with invalid timestamps
+    if (output?.soundEffectSuggestions) {
+      output.soundEffectSuggestions = output.soundEffectSuggestions.filter(sfx => sfx.timestamp < input.audioDuration);
+    }
+    
     return output!;
   }
 );
-
-    
