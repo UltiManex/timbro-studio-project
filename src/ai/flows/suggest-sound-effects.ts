@@ -51,7 +51,7 @@ const SuggestSoundEffectsInputSchema = z.object({
     .describe("The audio file to be analyzed, as a data URI. Used for initial processing."),
   audioUrl: z
     .string()
-al.url()
+    .url()
     .optional()
     .describe("A URL to the audio file. Used for re-processing."),
   analysisSettings: AnalysisSettingsSchema.describe('The settings for tone and effect placement.'),
