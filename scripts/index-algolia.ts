@@ -78,6 +78,7 @@ async function indexData() {
         'ontology_path',
         'unordered(name)',
         'unordered(tags)',
+        'unordered(text_desc)',
       ],
       // Attributes for filtering (facets)
       attributesForFaceting: ['filterOnly(tone)', 'filterOnly(mood)', 'loopable'],
