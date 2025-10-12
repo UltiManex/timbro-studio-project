@@ -115,6 +115,7 @@ export default function ProjectEditPage() {
   const mainAudioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const playedEffectsRef = useRef<Set<string>>(new Set());
+  const timelineTriggeredSelection = useRef(false);
 
   useEffect(() => {
     let foundProject: Project | null = null;
@@ -223,29 +224,46 @@ export default function ProjectEditPage() {
   };
   
   const handleTimeUpdate = () => {
-    if (!mainAudioRef.current || !project?.effects) return;
-
+    if (!mainAudioRef.current) return;
     const newTime = mainAudioRef.current.currentTime;
     setCurrentTime(newTime);
-    
-    // Play sound effects in real-time
-    project.effects.forEach(effectInstance => {
-      // Check if the effect should play and hasn't been played in this cycle
-      if (
+  };
+
+  // Effect to handle timeline-driven effect selection
+  useEffect(() => {
+    if (!isPlaying || !project?.effects) return;
+
+    const newTime = currentTime;
+    const effectToPlay = project.effects.find(
+      (effectInstance) =>
         !playedEffectsRef.current.has(effectInstance.id) &&
         newTime >= effectInstance.timestamp &&
-        newTime < effectInstance.timestamp + 0.5 // A small window to trigger
-      ) {
-        const effectDetails = soundLibrary.find(e => e.id === effectInstance.effectId);
-        if (effectDetails && effectDetails.previewUrl) {
-          const sfx = new Audio(effectDetails.previewUrl);
-          sfx.volume = effectInstance.volume ?? 1.0;
-          sfx.play().catch(e => console.error("SFX playback error:", e));
-          playedEffectsRef.current.add(effectInstance.id);
-        }
+        newTime < effectInstance.timestamp + 0.5 // 500ms trigger window
+    );
+
+    if (effectToPlay) {
+      playedEffectsRef.current.add(effectToPlay.id);
+      timelineTriggeredSelection.current = true; // Mark that this selection was from the timeline
+      setSelectedEffectInstance(effectToPlay);
+    }
+  }, [currentTime, isPlaying, project?.effects]);
+
+  // Effect to play audio when the selected instance changes *if* triggered by the timeline
+  useEffect(() => {
+    if (
+      timelineTriggeredSelection.current &&
+      selectedEffectInstance &&
+      isPlaying
+    ) {
+      const effectDetails = soundLibrary.find(e => e.id === selectedEffectInstance.effectId);
+      if (effectDetails?.previewUrl) {
+          handlePreviewEffect(effectDetails.previewUrl, effectDetails.name);
       }
-    });
-  };
+    }
+    // Always reset the flag after the effect runs
+    timelineTriggeredSelection.current = false;
+  }, [selectedEffectInstance, isPlaying, soundLibrary]);
+
 
   const handlePreviewEffect = (previewUrl: string, effectName: string) => {
     if (previewAudioRef.current) {
@@ -266,16 +284,10 @@ export default function ProjectEditPage() {
 
     if (previewAudioRef.current) {
         previewAudioRef.current.src = previewUrl;
-        previewAudioRef.current.load();
         const playPromise = previewAudioRef.current.play();
-
         if (playPromise !== undefined) {
             playPromise.catch(error => {
                 console.error(`Error playing preview for "${effectName}" (URL: ${previewUrl}):`, error);
-                if (previewAudioRef.current?.error) {
-                    console.error('Audio Element Error Code:', previewAudioRef.current.error.code);
-                    console.error('Audio Element Error Message:', previewAudioRef.current.error.message);
-                }
                 toast({
                     title: "Playback Error",
                     description: `Could not play '${effectName}'. The file might be corrupt or in an unsupported format.`,
@@ -810,3 +822,5 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
     </>
   );
 }
+
+    
