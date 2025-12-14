@@ -105,6 +105,7 @@ export default function DashboardPage() {
         try {
           let aiSuggestions: SoundEffectInstance[] = [];
           let transcript = project.transcript || '';
+          let structuredTranscript = project.structuredTranscript;
           
           if (!audioDataUri) {
              throw new Error(`Project ${project.id} is marked for processing, but its audio data is not available. Please re-upload.`);
@@ -120,6 +121,7 @@ export default function DashboardPage() {
           });
 
           transcript = aiResponse.transcript;
+          structuredTranscript = aiResponse.structuredTranscript;
 
           if (project.defaultEffectPlacement === 'ai-optimized') {
             aiSuggestions = (aiResponse.soundEffectSuggestions || []).map(suggestion => ({
@@ -135,7 +137,7 @@ export default function DashboardPage() {
             return;
           }
 
-          const projectWithAudio = { ...project, status: 'Ready for Review' as const, effects: aiSuggestions, transcript: transcript, audioDataUri: audioDataUri };
+          const projectWithAudio = { ...project, status: 'Ready for Review' as const, effects: aiSuggestions, transcript: transcript, structuredTranscript: structuredTranscript, audioDataUri: audioDataUri };
 
           const updatedProjects = currentProjects.map(p =>
             p.id === project.id
@@ -190,11 +192,8 @@ export default function DashboardPage() {
   };
 
   const handleProjectClick = (project: Project) => {
-    try {
-      sessionStorage.setItem(`timbro-active-project-${project.id}`, JSON.stringify(project));
-    } catch (e) {
-      console.error("Could not save project to session storage", e);
-    }
+    // The `sessionStorage` mechanism is removed to prevent quota errors with large projects.
+    // The editor page will now load directly from `localStorage`.
     router.push(`/projects/${project.id}/edit`);
   };
 
@@ -283,5 +282,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    

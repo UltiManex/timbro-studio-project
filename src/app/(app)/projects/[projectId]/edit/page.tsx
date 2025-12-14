@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import type { Project, SoundEffect, SoundEffectInstance, Tone, AnalysisSettings } from '@/lib/types';
+import type { Project, SoundEffect, SoundEffectInstance, Tone, AnalysisSettings, WordTimestamp } from '@/lib/types';
 import { AVAILABLE_TONES, EDITOR_NUDGE_INCREMENT_MS } from '@/lib/constants';
 import { Play, Pause, Rewind, FastForward, Save, Trash2, ChevronLeft, ChevronRight, Volume2, Settings2, Waves, ListFilter, Download, Loader2, Sparkles, Music4 } from 'lucide-react';
 import { ToneIcon } from '@/components/icons';
@@ -40,9 +40,6 @@ const algoliaIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME || '';
 
 const isAlgoliaConfigured = algoliaAppId && algoliaSearchApiKey && algoliaIndexName;
 const searchClient = isAlgoliaConfigured ? algoliasearch(algoliaAppId, algoliaSearchApiKey) : null;
-
-// A more realistic approximation for transcript highlighting
-const APPROX_WORDS_PER_SECOND = 2.5; // Corresponds to 150 WPM
 
 interface AlgoliaSoundEffectHit extends SoundEffect {
   objectID: string;
@@ -120,29 +117,24 @@ export default function ProjectEditPage() {
   useEffect(() => {
     let foundProject: Project | null = null;
     
-    // 1. Try to load from session storage first (for immediate navigation from dashboard)
+    // Load project directly from localStorage, which is the single source of truth.
+    // The previous `sessionStorage` mechanism has been removed to prevent quota errors.
     try {
-        const sessionProjectRaw = sessionStorage.getItem(`timbro-active-project-${projectId}`);
-        if (sessionProjectRaw) {
-            foundProject = JSON.parse(sessionProjectRaw);
-            // Clean up immediately after use
-            sessionStorage.removeItem(`timbro-active-project-${projectId}`);
-        }
-    } catch(e) { console.error("Could not read project from session storage", e); }
-    
-    // 2. If not in session, fall back to local storage
-    if (!foundProject) {
-        try {
-            const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-            const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
-            foundProject = allProjects.find((p: Project) => p.id === projectId) || null;
-        } catch (error) {
-            console.error("Failed to load project from localStorage:", error);
-        }
+        const storedProjectsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const allProjects = storedProjectsRaw ? JSON.parse(storedProjectsRaw) : [];
+        foundProject = allProjects.find((p: Project) => p.id === projectId) || null;
+    } catch (error) {
+        console.error("Failed to load project from localStorage:", error);
     }
 
     if (foundProject) {
-        // Now, check for the audio source (either the dataURI from session or the persistent URL)
+        // Since we removed audioDataUri from localStorage, we need to check the global store for it
+        // if the project is still in a processing state from the initial upload.
+        const newProjectAudioStore = (window as any).newProjectAudioStore || {};
+        if (newProjectAudioStore[projectId]) {
+            foundProject.audioDataUri = newProjectAudioStore[projectId];
+        }
+
         const audioSource = foundProject.audioDataUri || foundProject.audioUrl;
         
         if (!audioSource) {
@@ -177,14 +169,13 @@ export default function ProjectEditPage() {
         }
     };
     fetchLibrary();
-}, [projectId, router]);
+  }, [projectId, router]);
 
 
   // Centralized function to update project state and save to localStorage
   const updateProject = (updatedProjectData: Partial<Project>) => {
     if (!project) return;
     
-    // Create the updated project object for React state
     const updatedProjectForState = { ...project, ...updatedProjectData };
     setProject(updatedProjectForState);
 
@@ -262,7 +253,8 @@ export default function ProjectEditPage() {
     }
     // Always reset the flag after the effect runs
     timelineTriggeredSelection.current = false;
-  }, [selectedEffectInstance, isPlaying, soundLibrary]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEffectInstance, isPlaying]);
 
 
   const handlePreviewEffect = (previewUrl: string, effectName: string) => {
@@ -271,7 +263,6 @@ export default function ProjectEditPage() {
         previewAudioRef.current.currentTime = 0;
     }
     
-    // Robustness check for the previewUrl
     if (!previewUrl || typeof previewUrl !== 'string' || previewUrl.trim() === '' || previewUrl.startsWith('#') || previewUrl === 'undefined') {
         console.warn(`Attempted to play preview with invalid URL: '${previewUrl}' for effect: '${effectName}'`);
         toast({
@@ -328,14 +319,13 @@ export default function ProjectEditPage() {
   };
   
   const getHighlightedWordIndex = () => {
-    if (!project?.transcript) return -1;
-    const words = project.transcript.split(' ');
-    const estimatedIndex = Math.floor(currentTime * APPROX_WORDS_PER_SECOND);
-    // Ensure index doesn't go out of bounds
-    if (estimatedIndex >= words.length) {
-      return words.length - 1;
-    }
-    return estimatedIndex;
+    if (!project?.structuredTranscript) return -1;
+  
+    const currentWord = project.structuredTranscript.find(
+      (word: WordTimestamp) => currentTime >= word.start && currentTime <= word.end
+    );
+  
+    return currentWord ? project.structuredTranscript.indexOf(currentWord) : -1;
   };
 
   const updateSelectedEffect = (propsToUpdate: Partial<SoundEffectInstance>) => {
@@ -367,9 +357,6 @@ export default function ProjectEditPage() {
   };
   
   const handleSelectSoundForInstance = (effect: SoundEffect) => {
-    console.log("handleSelectSoundForInstance called. Effect object:", effect);
-    console.log("Current selected marker on timeline:", selectedEffectInstance);
-
     if (!selectedEffectInstance) {
         toast({ title: "No Marker Selected", description: "Click on the waveform to add a marker first.", variant: "destructive" });
         return;
@@ -389,7 +376,7 @@ export default function ProjectEditPage() {
   
   const handleSaveProject = () => {
     if (!project) return;
-    updateProject(project); // This just forces a save, though it happens automatically.
+    updateProject(project);
     toast({ title: "Project Saved!", description: "Your changes have been saved successfully." });
   };
 
@@ -471,6 +458,7 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
       updateProject({
         effects: newEffects,
         transcript: response.transcript,
+        structuredTranscript: response.structuredTranscript,
         selectedTone: settings.tone,
         defaultEffectPlacement: settings.placement,
       });
@@ -482,7 +470,6 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
           description: error.message || "An unexpected error occurred during re-analysis.", 
           variant: "destructive",
       });
-      // On failure, clear the "revert" state
       setPreReanalysisEffects(null);
       setPreReanalysisSettings(null);
     } finally {
@@ -505,15 +492,12 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
   };
 
   const handleConfirmChanges = () => {
-    // "Commit" the changes by clearing the revert state
     setPreReanalysisEffects(null);
     setPreReanalysisSettings(null);
     setIsAnalysisModalOpen(false);
     toast({ title: "Changes Confirmed", description: "Your project has been updated." });
   };
 
-
-  // Set the audio source when the project data is available
   useEffect(() => {
     const audioSource = project?.audioDataUri || project?.audioUrl;
     if (audioSource && mainAudioRef.current) {
@@ -524,13 +508,13 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
     }
   }, [project?.audioDataUri, project?.audioUrl]);
 
-
   if (!project) {
     return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /> Loading project...</div>;
   }
   
   const currentEffectDetails = selectedEffectInstance ? soundLibrary.find(libSfx => libSfx.id === selectedEffectInstance.effectId) : null;
   const audioSource = project.audioDataUri || project.audioUrl;
+  const transcriptWords = project.structuredTranscript || project.transcript?.split(' ').map(w => ({ word: w, start: -1, end: -1 })) || [];
 
   return (
     <>
@@ -538,7 +522,6 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
         isOpen={isAnalysisModalOpen}
         onOpenChange={(isOpen) => {
             if (!isOpen) {
-                // If closing modal, always clear any pending revert states
                 setPreReanalysisEffects(null);
                 setPreReanalysisSettings(null);
             }
@@ -636,11 +619,9 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
                        </div>
                     )}
                 </div>
-                {/* Playhead */}
                 {audioDuration > 0 && (
                   <div className="absolute top-0 bottom-0 bg-primary w-0.5" style={{ left: `${(currentTime / audioDuration) * 100}%` }}></div>
                 )}
-                {/* Effect Markers */}
                 {effects.map(ef => {
                   const effectDetailsMarker = soundLibrary.find(libSfx => libSfx.id === ef.effectId);
                   const toneForIcon = ef.isUserAdded ? 'User' : (effectDetailsMarker?.tone[0] || project.selectedTone);
@@ -672,11 +653,11 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
           <Card className="flex-1 overflow-hidden">
             <CardHeader><CardTitle className="text-lg">Transcript</CardTitle></CardHeader>
             <CardContent className="h-full pb-6">
-              <ScrollArea className="h-[calc(100%-0rem)] pr-4"> {/* Adjust height as needed */}
+              <ScrollArea className="h-[calc(100%-0rem)] pr-4">
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {project.transcript?.split(' ').map((word, index) => (
+                  {transcriptWords.map((word, index) => (
                     <span key={index} className={index === getHighlightedWordIndex() ? 'bg-primary/30 rounded' : ''}>
-                      {word}{' '}
+                      {word.word}{' '}
                     </span>
                   ))}
                 </p>
@@ -721,7 +702,6 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
                     <Trash2 className="mr-2 h-4 w-4"/>Delete Effect
                   </Button>
                   
-                  {/* Swap functionality */}
                   {currentEffectDetails && (
                      <div className="pt-2 border-t">
                         <p className="text-sm font-medium mb-1">Quick Swap:</p>
@@ -739,7 +719,6 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
             </CardContent>
           </Card>
           
-          {/* Sound Library with Algolia */}
           <Card className="flex-1 overflow-hidden flex flex-col">
             {isAlgoliaConfigured && searchClient ? (
               <InstantSearch
@@ -757,7 +736,7 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
                         classNames={{
                           root: 'relative',
                           form: 'h-full',
-                          input: 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-8', // Added pl-8 for icon
+                          input: 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm pl-8',
                           submitIcon: 'absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground',
                           resetIcon: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer',
                           loadingIndicator: 'absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground',
@@ -822,5 +801,3 @@ const handleUpdateAnalysis = async (settings: AnalysisSettings) => {
     </>
   );
 }
-
-    
