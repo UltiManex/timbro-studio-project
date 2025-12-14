@@ -12,7 +12,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
-import type { SoundEffect } from '@/lib/types';
+import type { SoundEffect, WordTimestamp } from '@/lib/types';
 import { db } from '@/lib/firebase-admin';
 
 async function fetchSoundEffectsFromFirestore(): Promise<SoundEffect[]> {
@@ -64,8 +64,9 @@ export type SuggestSoundEffectsInput = z.infer<typeof SuggestSoundEffectsInputSc
 
 const WordTimestampSchema = z.object({
   word: z.string(),
-  start: z.number().describe("Start time of the word in seconds."),
-  end: z.number().describe("End time of the word in seconds."),
+  // Make start and end optional to prevent crashes on AI-generated imperfections.
+  start: z.number().optional().describe("Start time of the word in seconds."),
+  end: z.number().optional().describe("End time of the word in seconds."),
 });
 
 const SuggestSoundEffectsOutputSchema = z.object({
@@ -182,6 +183,14 @@ Now, based on your expert analysis, generate the JSON output.`;
     // Post-processing step: Filter out suggestions with invalid timestamps
     if (output?.soundEffectSuggestions) {
       output.soundEffectSuggestions = output.soundEffectSuggestions.filter(sfx => sfx.timestamp < input.audioDuration);
+    }
+    
+    // NEW: Post-processing step to clean structured transcript.
+    // This removes any word objects that are missing a start or end time.
+    if (output?.structuredTranscript) {
+      output.structuredTranscript = output.structuredTranscript.filter(
+        word => typeof word.start === 'number' && typeof word.end === 'number'
+      ) as WordTimestamp[];
     }
     
     return output!;
